@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+# VERSION 1.2
 
 use Net::Ping;
 use LWP::UserAgent;
@@ -26,7 +26,7 @@ use threads;
 use Getopt::Long;
 
 
-print "+ Web sorrow 1.2RC2 Version detection and misconfig scanning tool\n";
+print "+ Web sorrow 1.2 Version detection and misconfig scanning tool\n";
 
 
 my $port = 0;
