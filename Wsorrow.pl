@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# VERSION 1.2
+#VERSION 1.1
 
 use Net::Ping;
 use LWP::UserAgent;
@@ -26,7 +26,7 @@ use threads;
 use Getopt::Long;
 
 
-print "+ Web sorrow 1.2 Version detection and misconfig scanning tool\n";
+print "+ Web sorrow 1.2.1 Version detection and misconfig scanning tool\n";
 
 
 my $port = 0;
@@ -41,6 +41,7 @@ GetOptions("host=s"   => \my $Host, # host ip or domain
 		"Nc" => \my $Nc, # No Core
 		"cms" => \my $cms, # Looks for version info with default cms files
 		"auth" => \my $auth, # MEH!!!!!!
+		"cmsPlugins" => \my $cmsPlugins,
 );
 
 # usage
@@ -53,7 +54,8 @@ usage:
 	-Eb   - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
 	-cms  - Looks for version info with default cms files
 	-auth - Dictionary attack to find login pages
-
+	-cmsPlugins - check for cms plugins [outdated 2010]
+	
 Example:
 	perl Wsorrow.pl -host scanme.nmap.org
 	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps
@@ -80,6 +82,9 @@ if(defined $cms){
 }
 if(defined $auth){
 	print "+ Enabled: Auth Dict. attack\n";
+}
+if(defined $cmsPlugins){
+	print "+ Enabled: cms plugins testing\n";
 }
 print "+ Start Time: " . localtime() . "\n";
 print "-" x 70 . "\n";
@@ -110,6 +115,10 @@ if(defined $cms){
 if(defined $auth){
 	&auth();
 }
+if(defined $cmsPlugins){
+	&cmsPlugins();
+}
+
 
 print "\n+ done :'(  -  Finshed on " . localtime;
 
@@ -405,4 +414,31 @@ sub auth{ # this DB is pretty good but not complete
 
 
 	close(authDB);
+}
+
+
+
+sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
+	print "+ CMS Plugins takes awhile....\n";
+	@cmsPluginDBlist = ('DB/drupal_plugins.db','DB/joomla_plugins.db','DB/wp_plugins.db');
+	
+	foreach $cmsPluginDB (@cmsPluginDBlist){
+		
+			open(cmsPluginDBFile, "+< $cmsPluginDB");
+			my @parsecmsPluginDB = <cmsPluginDBFile>;
+		
+			foreach my $JustDir (@parsecmsPluginDB){
+				chomp $JustDir;
+				# send req and check if it's valid
+				my $cmsPluginDir = $ua->get("http://$Host/" . $JustDir);
+				if($cmsPluginDir->is_success){
+					print "+ CMS Plugin Found: $JustDir in DataBase $cmsPluginDB\n";
+					&checkFalsePositives($cmsPluginDir->decoded_content ,$JustDir);
+				}
+			}
+		
+
+	}
+
+
 }
