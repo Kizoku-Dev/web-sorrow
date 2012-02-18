@@ -17,31 +17,33 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.1
+#VERSION 1.2.2
 
 use Net::Ping;
 use LWP::UserAgent;
 use HTTP::Response;
 use threads;
 use Getopt::Long;
+#use strict;
+
+print "+ Web sorrow 1.2.2 Version detection and misconfig scanning tool\n";
 
 
-print "+ Web sorrow 1.2.1 Version detection and misconfig scanning tool\n";
-
-
+my $i;
 my $port = 0;
+my $Opt;
 my $ua = LWP::UserAgent->new;
 $ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
 
 
-GetOptions("host=s"   => \my $Host, # host ip or domain
+GetOptions("host=s" => \my $Host, # host ip or domain
 		"Ps" => \my $Ps, # port scan
 		"Eb" => \my $Eb, # error begging
 		"Nc" => \my $Nc, # No Core
 		"cms" => \my $cms, # Looks for version info with default cms files
-		"auth" => \my $auth, # MEH!!!!!!
-		"cmsPlugins" => \my $cmsPlugins,
+		"auth" => \my $auth, # MEH!!!!!! self explanitory
+		"cmsPlugins" => \my $cmsPlugins, # cms plugins
 );
 
 # usage
@@ -53,7 +55,7 @@ usage:
 	-Ps   - Scans ports 1-100 with tcp probes
 	-Eb   - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
 	-cms  - Looks for version info with default cms files
-	-auth - Dictionary attack to find login pages
+	-auth - Dictionary attack to find login pages [not passwords]
 	-cmsPlugins - check for cms plugins [outdated 2010]
 	
 Example:
@@ -115,6 +117,7 @@ if(defined $cms){
 if(defined $auth){
 	&auth();
 }
+
 if(defined $cmsPlugins){
 	&cmsPlugins();
 }
@@ -138,14 +141,22 @@ sub PromtUser{ # Yes or No?
 }
 
 sub checkFalsePositives{ # is it an error? i don't know if this works yet. no syntax error but not sure yet
-	my ($checkReq,$checkURI) = @_;
-	my @PosibleErrorStrings = ('error 404','error 400','not found','could not find','Bad Request');
+	my ($CheckReq,$checkURI) = @_;
+	my @PosibleErrorStrings = ('error 404','error 400','not found','could not find','Bad Request','server error');
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckReq =~ /$errorCheck/i){
 			print "- Page $checkURI Contained text: $errorCheck may be a False Positive!\n";
 		}
 	}
 	
+}
+
+sub genErrorString{
+	my $errorStringGGG = "";
+	for($i = 0;$i < 20;$i++){
+		$errorStringGGG .= chr((int(rand(93)) + 33)); # random 20 byte to invoke 404 sometimes 400
+	}
+	return $errorStringGGG;
 }
 
 
@@ -175,8 +186,11 @@ sub core{ #some standard stuff
 			
 			if($HString =~ /x-aspnet-version:/i){
 				print "+ Banner Graber - " . $HString . "\n";
-			}
+			} 
 			
+			if($HString =~ /www-authenticate:/i){
+				print "+ Banner Graber - " . $HString . "\n";
+			}
 		}
 		
 		
@@ -191,44 +205,13 @@ sub core{ #some standard stuff
 				print "+ robots.txt Contents: \n";
 				print $roboTXT->decoded_content . "\n";
 			}
-				
-				# may use this in future
-				
-				
-				#my @CleanRobotDirs;
-				#my @DirtyRobot = split(/\n/, $roboTXT->decoded_content);
-				#my $c = 0;
-				
-				# parse robots.txt for directories
-				#foreach my $DIRcheck (@DirtyRobot){
-				#	if($DIRcheck =~ /disallow:/i){
-				#		$DIRcheck =~ s/disallow://ig;
-				#		$DIRcheck =~ s/ //ig;
-				#		$DIRcheck =~ s/\n//ig;
-				#		
-				#		push(@CleanRobotDirs,$DIRcheck);
-				#		
-				#	} elsif ($DIRcheck =~ /allow:/i){
-				#		$DIRcheck =~ s/allow://ig;
-				#		$DIRcheck =~ s/ //ig;
-				#		$DIRcheck =~ s/\n//ig;
-				#		push(@CleanRobotDirs,$DIRcheck);
-				#		
-				#	}
-
-				#}
-
-				#my $Opt = &PromtUser("+ Would you like to check robots.txt for ? (y/n) ? ");
-				#if($Opt =~ /y/i){
-	
-				#}
 		}
 		
 		
 		
 		#lilith 6.0A rework of sub indexable with a cupple additions.
 		
-		my @CommonDIRs = ('/images','/imgs','/img','/icons','/home','/wp-content','/pictures','/main','/css','/style','/styles','/docs','/pics','/_','/thumbnails','/thumbs','/scripts');
+		my @CommonDIRs = ('/images','/imgs','/img','/icons','/home','/wp-content','/pictures','/main','/css','/style','/styles','/docs','/pics','/_','/thumbnails','/thumbs','/scripts','/files');
 		&checkOpenDirListing(@CommonDIRs);
 		
 
@@ -240,20 +223,20 @@ sub core{ #some standard stuff
 				my $IndexFind = $ua->get("http://$Host" . $dir);
 					
 				# Apache
-				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/){
+				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/i){
 					# extra checking (<a.*>last modified</a>, ...)
 					print "+ Directory indexing found in $dir - AND it looks like an Apache server!\n";
 					&checkFalsePositives($IndexFind->decoded_content ,$dir);
 				}
 
 				# Tomcat
-				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/ and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/){
+				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
 					print "+ Directory indexing found in $dir - AND it looks like an Apache Tomcat server!\n";
 					&checkFalsePositives($IndexFind->decoded_content ,$dir);
 				}
 
 				# iis
-				if($IndexFind->content =~ /<body><H1>$Host - $dir/){
+				if($IndexFind->content =~ /<body><H1>$Host - $dir/i){
 					print "+ Directory indexing found in $dir - AND it looks like an IIS server!\n";
 					&checkFalsePositives($IndexFind->decoded_content ,$dir);
 				}
@@ -261,6 +244,35 @@ sub core{ #some standard stuff
 			}
 		}
 		
+		# laguage checks
+		my $LangReq = $ua->get("http://$Host/");
+		my @langSpaceSplit = split(/ / ,$LangReq->decoded_content);
+		
+		my $langString = 'lang=';
+		
+		foreach my $lineIDK (@langSpaceSplit){
+			if($lineIDK =~ /$langString('|").*?('|")/i){
+				while($lineIDK =~ "\t"){ #make pretty
+					$lineIDK =~ s/\t//sg;
+				}
+				while($lineIDK =~ /(<|>)/i){ #prevent html from sliping in
+					chop $lineIDK;
+				}
+				
+				print "+ page Laguage found: $lineIDK\n";
+			}
+		}
+		
+		
+		# Some servers just give you a 200 with every req. lets see
+		for($i = 0;$i < 5;$i++){
+			my $errorString = &genErrorString();
+			my $check200 = $ua->get("http://$Host/$errorString");
+			
+			if($check200->is_success){
+				print "+ /$errorString responded with code: " . $check200->code . " the server might just responde with this code even when the dir or file don't exist!\n";
+			}
+		}
 }
 
 
@@ -303,23 +315,14 @@ sub PortScan{
 
 # I don't know if this method has be used in other tools or has even been discovered before but I think it should allways be fixed 
 sub ErrorBegging{
-		
-		my $errorString = "";
-		for($i = 0;$i < 20;$i++){
-			$errorString .= chr((int(rand(93)) + 33)); # random 20 byte to invoke 404 sometimes 400
-		}
 
-
+		my $errorString = &genErrorString();
 		my $response = $ua->get("http://$Host/$errorString");
 		sleep(1);
 		&checkError();
 		
 		
-		my $errorString = "";
-		for($i = 0;$i < 20;$i++){
-			$errorString .= chr((int(rand(93)) + 33)); # random 20 byte to invoke 404 sometimes 400
-		}
-		
+		$errorString = &genErrorString();
 		$response = $ua->post("http://$Host/$errorString");
 		sleep(1);
 		&checkError();
@@ -331,14 +334,22 @@ sub ErrorBegging{
 				my $siteHTML = $response->decoded_content;
 				
 				
-				### strip html tags and prettyify [almost perfectly]
+				### strip html tags and make pretty [very close to perfectly]
+				$siteHTML =~ s/<script.*?<\/script>//sgi;
+				$siteHTML =~ s/<style.*?<\/style>//sgi;
 				$siteHTML =~ s/<(?!--)[^'">]*"[^"]*"/</gi;
 				$siteHTML =~ s/<(?!--)[^'">]*'[^']*'/</gi;
 				$siteHTML =~ s/<(?!--)[^">]*>//gi;
 				$siteHTML =~ s/<!--.*?-->//gi;
 				$siteHTML =~ s/<.*?>//gi;
 				$siteHTML =~ s/\n/ /g;
-				$siteHTML =~ s/  / /g;
+				while($siteHTML =~ "  "){
+					$siteHTML =~ s/  / /g;
+				}
+				while($siteHTML =~ "\t"){
+					$siteHTML =~ s/\t//sg;
+				}
+				
 				
 				my $siteNaked = $siteHTML;
 				if(length($siteNaked) > 1000){
@@ -363,6 +374,7 @@ sub cms{
 	open(cmsDB, "+< DB/CMS.db");
 	my @parseCMSdb = <cmsDB>;
 	
+	my @cmsDirMsg;
 	foreach my $lineIDK (@parseCMSdb){
 		push(@cmsDirMsg, $lineIDK);
 	}
@@ -393,6 +405,7 @@ sub auth{ # this DB is pretty good but not complete
 	open(authDB, "+< DB/login.db");
 	my @parseAUTHdb = <authDB>;
 	
+	my @authDirMsg;
 	foreach my $lineIDK (@parseAUTHdb){
 		push(@authDirMsg, $lineIDK);
 	}
@@ -406,7 +419,7 @@ sub auth{ # this DB is pretty good but not complete
 		
 		# send req and check if it's valid
 		my $authCheckMsgDir = $ua->get("http://$Host" . $JustDir);
-		if($authCheckMsgDir->is_success){
+		if($authCheckMsgDir->is_success or $authCheckMsgDir->code == 401 or $authCheckMsgDir->code == 403){
 			print "+ Login Page Found: $JustDir  -  $MSG";
 			&checkFalsePositives($authCheckMsgDir->decoded_content ,$JustDir);
 		}
@@ -420,13 +433,14 @@ sub auth{ # this DB is pretty good but not complete
 
 sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 	print "+ CMS Plugins takes awhile....\n";
-	@cmsPluginDBlist = ('DB/drupal_plugins.db','DB/joomla_plugins.db','DB/wp_plugins.db');
+	my @cmsPluginDBlist = ('DB/joomla_plugins.db','DB/drupal_plugins.db','DB/wp_plugins.db');
 	
-	foreach $cmsPluginDB (@cmsPluginDBlist){
-		
+	foreach my $cmsPluginDB (@cmsPluginDBlist){
+			print "+ Testing Plugins with Database: $cmsPluginDB\n";
+			
 			open(cmsPluginDBFile, "+< $cmsPluginDB");
 			my @parsecmsPluginDB = <cmsPluginDBFile>;
-		
+			
 			foreach my $JustDir (@parsecmsPluginDB){
 				chomp $JustDir;
 				# send req and check if it's valid
