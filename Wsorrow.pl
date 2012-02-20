@@ -17,16 +17,16 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.2
+#VERSION 1.2.3
 
 use Net::Ping;
 use LWP::UserAgent;
 use HTTP::Response;
 use threads;
 use Getopt::Long;
-#use strict;
+use strict;
 
-print "+ Web sorrow 1.2.2 Version detection and misconfig scanning tool\n";
+print "+ Web sorrow 1.2.3 Version detection and misconfig scanning tool\n";
 
 
 my $i;
@@ -44,6 +44,9 @@ GetOptions("host=s" => \my $Host, # host ip or domain
 		"cms" => \my $cms, # Looks for version info with default cms files
 		"auth" => \my $auth, # MEH!!!!!! self explanitory
 		"cmsPlugins" => \my $cmsPlugins, # cms plugins
+		"I" => \my $interesting, # find interesting text in /index.whatever
+		"e" => \my $e, # EVERYTHINGGGGGGGG
+		"proxy=s" => \my $ProxyServer,
 );
 
 # usage
@@ -57,11 +60,14 @@ usage:
 	-cms  - Looks for version info with default cms files
 	-auth - Dictionary attack to find login pages [not passwords]
 	-cmsPlugins - check for cms plugins [outdated 2010]
+	-I    - Find interesting strings in html [very verbose]
+	-e    - everything. run all scans
+	-proxy - use a proxy server. ip:port
 	
 Example:
 	perl Wsorrow.pl -host scanme.nmap.org
 	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps
-	perl Wsorrow.pl -host 66.11.227.35 -Nc -cms
+	perl Wsorrow.pl -host 66.11.227.35 -Nc -cms -I -proxy 129.255.1.17:3128
 };
 exit();
 }
@@ -70,6 +76,14 @@ exit();
 
 print "-" x 70 . "\n";
 print "+ Host: $Host\n";
+if(defined $ProxyServer){
+	print "+ Proxy: $ProxyServer\n";
+}
+
+if(defined $e){
+	print "+ Enabled: EVERYTHING!\n";
+}
+
 if(defined $Ps){
 	print "+ Enabled: Port Scan\n";
 }
@@ -88,6 +102,9 @@ if(defined $auth){
 if(defined $cmsPlugins){
 	print "+ Enabled: cms plugins testing\n";
 }
+if(defined $interesting){
+	print "+ Enabled: mine interesting text\n";
+}
 print "+ Start Time: " . localtime() . "\n";
 print "-" x 70 . "\n";
 
@@ -98,30 +115,68 @@ if($Host =~ "http:"){ #check host input
 }
 
 #run scans
+
+if(defined $ProxyServer){
+	&proxy(); # always make sure to put this first, lest we send un-proxied packets
+}
+
+
 if(!defined $Nc){
 	&core();
 }
 
 if(defined $Ps){
+	print "+ running port scanner\n";
 	&PortScan();
 }
 
 if(defined $Eb){
+	print "+ runnning  Error begging scanner\n";
 	&ErrorBegging();
 }
 
 if(defined $cms){
+	print "+ running cms version detection scanner\n";
 	&cms();
 }
 
 if(defined $auth){
+	print "+ running auth aka login page finder\n";
 	&auth();
 }
 
 if(defined $cmsPlugins){
+	print "+ running cms plugin detection scanner\n"
 	&cmsPlugins();
 }
 
+if(defined $interesting){
+	print "+ running Interesting text scanner\n";
+	&interesting();
+}
+
+
+if(defined $e){
+
+	print "+ running port scanner\n";
+	&PortScan();
+	
+	print "+ runnning  Error begging scanner\n";
+	&ErrorBegging();
+	
+	print "+ running cms version detection scanner\n";
+	&cms();
+	
+	print "+ running auth aka login page finder\n";
+	&auth();
+	
+	print "+ running Interesting text scanner\n";
+	&interesting();
+	
+	print "+ running cms plugin detection scanner\n"
+	&cmsPlugins();
+
+}
 
 print "\n+ done :'(  -  Finshed on " . localtime;
 
@@ -147,6 +202,9 @@ sub checkFalsePositives{ # is it an error? i don't know if this works yet. no sy
 		if($CheckReq =~ /$errorCheck/i){
 			print "- Page $checkURI Contained text: $errorCheck may be a False Positive!\n";
 		}
+		if($CheckReq =~ /www-authenticate:/i){ # this didn't have much of a use when parsing /index.whatever
+				print "+ Banner Graber - $checkURI contained banner: www-authenticate Hmmmm\n";
+		}
 	}
 	
 }
@@ -158,6 +216,13 @@ sub genErrorString{
 	}
 	return $errorStringGGG;
 }
+
+sub proxy{ # simple!!! i loves it
+	$ua->proxy('http',"http://$ProxyServer");
+}
+
+
+
 
 
 
@@ -213,8 +278,6 @@ sub core{ #some standard stuff
 		
 		my @CommonDIRs = ('/images','/imgs','/img','/icons','/home','/wp-content','/pictures','/main','/css','/style','/styles','/docs','/pics','/_','/thumbnails','/thumbs','/scripts','/files');
 		&checkOpenDirListing(@CommonDIRs);
-		
-
 		
 		sub checkOpenDirListing{
 			my (@DIRlist) = @_;
@@ -431,6 +494,7 @@ sub auth{ # this DB is pretty good but not complete
 
 
 
+
 sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 	print "+ CMS Plugins takes awhile....\n";
 	my @cmsPluginDBlist = ('DB/joomla_plugins.db','DB/drupal_plugins.db','DB/wp_plugins.db');
@@ -455,4 +519,30 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 	}
 
 
+}
+
+
+
+
+sub interesting{ # look for DBs, dirs, login pages, and emails and such
+	my @interestingStings = ('https:','password','passwd','admin','database','payment','bank','account','twitter.com','facebook.com','login','@.*?(com|org|net|tv|uk|mil|gov)');
+	my $mineIndex = $ua->get("http://$Host/");
+	
+	foreach my $checkInterestingSting (@interestingStings){
+		my @IndexData = split(/</,$mineIndex->decoded_content); # im not yet certian slpliting by ('|") is the best method
+		
+		foreach my $splitIndex (@IndexData){
+			if($splitIndex =~ /$checkInterestingSting/i){
+				while($splitIndex =~ "\n" or $splitIndex =~ "\t" or $splitIndex =~ "  "){
+					$splitIndex =~ s/\n/ /g;
+					$splitIndex=~ s/\t//g;
+					$splitIndex=~ s/  / /g;
+				}
+				# the split chops of < so i just stick it in there to make it look pretty
+				print "+ interesting text found in: <$splitIndex\n";
+			}
+			
+		}
+
+	}
 }
