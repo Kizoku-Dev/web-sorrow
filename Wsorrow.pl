@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.3
+#VERSION 1.2.4
 
 use Net::Ping;
 use LWP::UserAgent;
@@ -25,8 +25,9 @@ use HTTP::Response;
 use threads;
 use Getopt::Long;
 use strict;
+#use warnings; #I turn this on just before release to look for bugs 
 
-print "+ Web sorrow 1.2.3 Version detection and misconfig scanning tool\n";
+print "+ Web sorrow 1.2.4 Version detection and misconfig scanning tool\n";
 
 
 my $i;
@@ -45,25 +46,29 @@ GetOptions("host=s" => \my $Host, # host ip or domain
 		"auth" => \my $auth, # MEH!!!!!! self explanitory
 		"cmsPlugins" => \my $cmsPlugins, # cms plugins
 		"I" => \my $interesting, # find interesting text in /index.whatever
+		"Ws" => \my $Ws,
 		"e" => \my $e, # EVERYTHINGGGGGGGG
-		"proxy=s" => \my $ProxyServer,
+		"proxy=s" => \my $ProxyServer, #use a proxy
+		"Fd" => \my $Fd,
 );
 
 # usage
 if(!defined $Host){
 print q{
 usage:
-	-host - Defines host to scan.
-	-Nc   - Disables standard misconfig checks
-	-Ps   - Scans ports 1-100 with tcp probes
-	-Eb   - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
-	-cms  - Looks for version info with default cms files
+	-host [host] - Defines host to scan.
+	-proxy [ip:port] - use a proxy server [not on -Ps].
+	-Nc - Disables standard misconfig checks
+	-Ps - Scans ports 1-100 with tcp probes
+	-Eb - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
+	-cms - Looks for version info with default cms files
 	-auth - Dictionary attack to find login pages [not passwords]
 	-cmsPlugins - check for cms plugins [outdated 2010]
-	-I    - Find interesting strings in html [very verbose]
-	-e    - everything. run all scans
-	-proxy - use a proxy server. ip:port
-	
+	-I - Find interesting strings in html [very verbose]
+	-Fd - look for common interesting files and dirs
+	-Ws - look for Web Services on host. such as hosting porvider or blogging service
+	-e - everything. run all scans
+
 Example:
 	perl Wsorrow.pl -host scanme.nmap.org
 	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps
@@ -105,11 +110,17 @@ if(defined $cmsPlugins){
 if(defined $interesting){
 	print "+ Enabled: mine interesting text\n";
 }
+if(defined $Fd){
+	print "+ Enabled: interesting files and dirs\n";
+}
+if(defined $Ws){
+	print "+ Enabled: Web Service testing\n";
+}
 print "+ Start Time: " . localtime() . "\n";
 print "-" x 70 . "\n";
 
 
-if($Host =~ "http:"){ #check host input
+if($Host =~ "http:\/\/"){ #check host input
 	print "- No http:// please! just domain name or IP ADDR\n";
 	exit();
 }
@@ -146,13 +157,23 @@ if(defined $auth){
 }
 
 if(defined $cmsPlugins){
-	print "+ running cms plugin detection scanner\n"
+	print "+ running cms plugin detection scanner\n";
 	&cmsPlugins();
 }
 
 if(defined $interesting){
 	print "+ running Interesting text scanner\n";
 	&interesting();
+}
+
+if(defined $Fd){
+	print "+ running Interesting files and dirs scanner\n";
+	&FilesAndDirsGoodies();
+}
+
+if(defined $Ws){
+	print "+ running Web Service scanner\n";
+	&webServices();
 }
 
 
@@ -173,8 +194,14 @@ if(defined $e){
 	print "+ running Interesting text scanner\n";
 	&interesting();
 	
-	print "+ running cms plugin detection scanner\n"
+	print "+ running cms plugin detection scanner\n";
 	&cmsPlugins();
+	
+	print "+ running Interesting files and dirs scanner\n";
+	&FilesAndDirsGoodies();
+	
+	print "+ running Web Service scanner\n";
+	&webServices();
 
 }
 
@@ -188,43 +215,106 @@ print "\n+ done :'(  -  Finshed on " . localtime;
 # non scanning subs for clean code and speed 'n stuff
 
 sub PromtUser{ # Yes or No?
-	my ($PromtMSG) = @_;
+	my $PromtMSG = shift; # i find the shift is much sexyer then then @_
 	
 	print $PromtMSG;
 	$Opt = <stdin>;
 	return $Opt;
 }
 
-sub checkFalsePositives{ # is it an error? i don't know if this works yet. no syntax error but not sure yet
-	my ($CheckReq,$checkURI) = @_;
-	my @PosibleErrorStrings = ('error 404','error 400','not found','could not find','Bad Request','server error');
+sub analyzeResponse{ # heres were all the smart is...
+	my $CheckResp = shift;
+	my $checkURL = shift;
+	
+	#False Positive checking
+	my @PosibleErrorStrings = ('error 404','error 400','not found','could not find','bad request','server error');
 	foreach my $errorCheck (@PosibleErrorStrings){
-		if($CheckReq =~ /$errorCheck/i){
-			print "- Page $checkURI Contained text: $errorCheck may be a False Positive!\n";
-		}
-		if($CheckReq =~ /www-authenticate:/i){ # this didn't have much of a use when parsing /index.whatever
-				print "+ Banner Graber - $checkURI contained banner: www-authenticate Hmmmm\n";
+		if($CheckResp =~ /$errorCheck/i){
+			return "- Page $checkURL Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
 		}
 	}
 	
+	$CheckResp =~ s/\r//g;
+	my @analHeaders = split("\n", $CheckResp); # tehe i know...
+		
+	foreach my $analHString (@analHeaders){
+	
+		#auth page checking
+		if($analHString =~ /www-authenticate:/i){
+			return "+ Banner Graber - $checkURL contained header: $analHString Hmmmm\n";
+		}
+		
+		#the page is empty?
+		if($analHString =~ /Content-Length: (0|1)/i){
+			return "+ Banner Graber - $checkURL contained header: $analHString which is weird Hmmmm\n";
+		}
+		
+		#a hash?
+		if($analHString =~ /Content-MD5:/i){
+			return "+ Banner Graber - $checkURL contains header: $analHString Hmmmm\n";
+		}
+		
+		#redircted me?
+		if($analHString =~ /refresh:/i){
+			print "+ Banner Graber - $checkURL - looks like it redirects. header: $analHString\n";
+		}
+		
+		if($analHString =~ /location:/i){
+			my @checkLocation = split(/:/,$analHString);
+			my $lactionEnd = $checkLocation[1];
+			if($lactionEnd =! /$checkURL/i){
+				print "+ Banner Graber - The header: $analHString does not match the requested page: $checkURL MAYBE a redirect?\n";
+			}
+		}
+		
+		if($analHString =~ /http\/1.1 30(1|2|7)/i){
+			print "+ Banner Graber - $checkURL - looks like it redirects. header: $analHString\n";
+		}
+		
+	}
 }
 
 sub genErrorString{
 	my $errorStringGGG = "";
 	for($i = 0;$i < 20;$i++){
-		$errorStringGGG .= chr((int(rand(93)) + 33)); # random 20 byte to invoke 404 sometimes 400
+		$errorStringGGG .= chr((int(rand(93)) + 33)); # random 20 bytes to invoke 404 sometimes 400
 	}
 	return $errorStringGGG;
 }
 
 sub proxy{ # simple!!! i loves it
 	$ua->proxy('http',"http://$ProxyServer");
+	
+	if(defined $Ps){
+		my $warnPortscan = &PromtUser("! WARNING: Proxy Settings do not work when using the -Ps do you want to exit? (y/N) ");
+		if($warnPortscan =~ /n/i){
+			exit();
+		}
+	}
+}
+
+sub dataBaseScan{ # use a database for scanning.
+	my $DataFromDB = shift;
+	my $scanMSG = shift;
+	
+	
+		# take data from database and seperate dir from msg
+		my @LineFromDB = split(';',$DataFromDB);
+		my $JustDir = $LineFromDB[0]; #Dir or file to req
+		my $MSG = $LineFromDB[1]; #this is the message printed if the url req isn't an error
+		
+		# send req and validate
+		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
+		unless($checkMsgDir->is_error){
+			print "+ $scanMSG: $JustDir  -  $MSG";
+			print &analyzeResponse($checkMsgDir->as_string() ,$JustDir);
+		}
 }
 
 
 
 
-
+#---------------------------------------------------------------------------------------------------------------
 
 
 
@@ -249,6 +339,10 @@ sub core{ #some standard stuff
 				print "+ Banner Graber - " . $HString . "\n";
 			}
 			
+			if($HString =~ /x-meta-originator:/i){
+				print "+ Banner Graber - " . $HString . "\n";
+			}
+			
 			if($HString =~ /x-aspnet-version:/i){
 				print "+ Banner Graber - " . $HString . "\n";
 			} 
@@ -256,13 +350,25 @@ sub core{ #some standard stuff
 			if($HString =~ /www-authenticate:/i){
 				print "+ Banner Graber - " . $HString . "\n";
 			}
+			
+			if($HString =~ /x-xss.*:/i){
+				print "+ Banner Graber - " . $HString . "\n";
+			}
+			
+			if($HString =~ /refresh:/i){
+				print "+ Banner Graber - " . $HString . " - looks like it redirects to something\n";
+			}
+			
+			if($HString =~ /content-location:/i){
+				print "+ Banner Graber - " . $HString . " - looks like it redirects to something\n";
+			}
 		}
 		
 		
 		#robots.txt
 		my $roboTXT = $ua->get("http://$Host/robots.txt");
 		unless($roboTXT->is_error){
-			&checkFalsePositives($roboTXT->decoded_content ,"/robots.txt");
+			print &analyzeResponse($roboTXT->as_string() ,"/robots.txt");
 			
 			my $Opt = &PromtUser("+ robots.txt found! This could be interesting!\n+ would you like me to display it? (y/n) ? ");
 
@@ -276,7 +382,7 @@ sub core{ #some standard stuff
 		
 		#lilith 6.0A rework of sub indexable with a cupple additions.
 		
-		my @CommonDIRs = ('/images','/imgs','/img','/icons','/home','/wp-content','/pictures','/main','/css','/style','/styles','/docs','/pics','/_','/thumbnails','/thumbs','/scripts','/files');
+		my @CommonDIRs = ('/images','/imgs','/img','/icons','/home','/pictures','/main','/css','/style','/styles','/docs','/pics','/_','/thumbnails','/thumbs','/scripts','/files');
 		&checkOpenDirListing(@CommonDIRs);
 		
 		sub checkOpenDirListing{
@@ -289,19 +395,19 @@ sub core{ #some standard stuff
 				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/i){
 					# extra checking (<a.*>last modified</a>, ...)
 					print "+ Directory indexing found in $dir - AND it looks like an Apache server!\n";
-					&checkFalsePositives($IndexFind->decoded_content ,$dir);
+					print &analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# Tomcat
 				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
 					print "+ Directory indexing found in $dir - AND it looks like an Apache Tomcat server!\n";
-					&checkFalsePositives($IndexFind->decoded_content ,$dir);
+					print &analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# iis
 				if($IndexFind->content =~ /<body><H1>$Host - $dir/i){
 					print "+ Directory indexing found in $dir - AND it looks like an IIS server!\n";
-					&checkFalsePositives($IndexFind->decoded_content ,$dir);
+					print &analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 				
 			}
@@ -359,13 +465,13 @@ sub PortScan{
 			
 			
 		sub doPing {
-			my ($Host, $portBase) = @_;
+			my ($pingHost, $portBase) = @_;
 
 			for my $port ($portBase .. $portBase + 19) {
 				my $ping = Net::Ping->new("tcp");
 				$ping->port_number($port);
 
-				print "+ OPEN tcp port $port\n" if $ping->ping($Host);
+				print "+ OPEN tcp port $port\n" if $ping->ping($pingHost);
 			}
 		}
 
@@ -400,12 +506,12 @@ sub ErrorBegging{
 				### strip html tags and make pretty [very close to perfectly]
 				$siteHTML =~ s/<script.*?<\/script>//sgi;
 				$siteHTML =~ s/<style.*?<\/style>//sgi;
-				$siteHTML =~ s/<(?!--)[^'">]*"[^"]*"/</gi;
-				$siteHTML =~ s/<(?!--)[^'">]*'[^']*'/</gi;
-				$siteHTML =~ s/<(?!--)[^">]*>//gi;
-				$siteHTML =~ s/<!--.*?-->//gi;
-				$siteHTML =~ s/<.*?>//gi;
-				$siteHTML =~ s/\n/ /g;
+				$siteHTML =~ s/<(?!--)[^'">]*"[^"]*"/</sgi;
+				$siteHTML =~ s/<(?!--)[^'">]*'[^']*'/</sgi;
+				$siteHTML =~ s/<(?!--)[^">]*>//sgi;
+				$siteHTML =~ s/<!--.*?-->//sgi;
+				$siteHTML =~ s/<.*?>//sgi;
+				$siteHTML =~ s/\n/ /sg;
 				while($siteHTML =~ "  "){
 					$siteHTML =~ s/  / /g;
 				}
@@ -443,20 +549,8 @@ sub cms{
 	}
 	
 	foreach my $cmsDirAndMsg (@cmsDirMsg){
-	
-		# seperate dir from msg
-		my @cmsdir = split(';',$cmsDirAndMsg);
-		my $JustDir = $cmsdir[0];
-		my $MSG = $cmsdir[1];
-		
-		# send req and check if it's valid
-		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
-		unless($checkMsgDir->is_error){
-			print "+ cms default: $JustDir  -  $MSG";
-			&checkFalsePositives($checkMsgDir->decoded_content ,$JustDir);
-		}
+		&dataBaseScan($cmsDirAndMsg,'cms version info Found'); #this func can only be called when the DB uses the /dir;msg format
 	}
-
 
 	close(cmsDB);
 }
@@ -474,22 +568,42 @@ sub auth{ # this DB is pretty good but not complete
 	}
 	
 	foreach my $authDirAndMsg (@authDirMsg){
-	
-		# seperate dir from msg
-		my @authdir = split(';',$authDirAndMsg);
-		my $JustDir = $authdir[0];
-		my $MSG = $authdir[1];
-		
-		# send req and check if it's valid
-		my $authCheckMsgDir = $ua->get("http://$Host" . $JustDir);
-		if($authCheckMsgDir->is_success or $authCheckMsgDir->code == 401 or $authCheckMsgDir->code == 403){
-			print "+ Login Page Found: $JustDir  -  $MSG";
-			&checkFalsePositives($authCheckMsgDir->decoded_content ,$JustDir);
-		}
+		&dataBaseScan($authDirAndMsg,'Login Page Found');
 	}
 
 
 	close(authDB);
+}
+
+
+
+
+sub webServices{ # needs a bit of refining and expansion
+	open(webServicesDB, "+< DB/web-services.db");
+	my @parsewebServicesdb = <webServicesDB>;
+	
+	my $webServicesTestPage = $ua->get("http://$Host/");
+	
+	my @webServicesStringMsg;
+	foreach my $lineIDK (@parsewebServicesdb){
+		push(@webServicesStringMsg, $lineIDK);
+	}
+	
+
+		
+	foreach my $ServiceString (@webServicesStringMsg){
+		my @webServicesLineFromDB = split(';',$ServiceString);
+		my $JustString = $webServicesLineFromDB[0]; #String to find in page
+		my $MSG = $webServicesLineFromDB[1]; #this is the message printed if the url req isn't an error
+
+		if($webServicesTestPage->decoded_content =~ /$JustString/i){
+			print "+ Web Service Found: $MSG";
+		}
+		
+	}
+
+
+	close(webServicesDB);
 }
 
 
@@ -511,10 +625,39 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 				my $cmsPluginDir = $ua->get("http://$Host/" . $JustDir);
 				if($cmsPluginDir->is_success){
 					print "+ CMS Plugin Found: $JustDir in DataBase $cmsPluginDB\n";
-					&checkFalsePositives($cmsPluginDir->decoded_content ,$JustDir);
+					print &analyzeResponse($cmsPluginDir->as_string() ,$JustDir);
 				}
 			}
-		
+		close(cmsPluginDBFile);
+
+	}
+
+
+}
+
+
+
+
+sub FilesAndDirsGoodies{ # databases provided by: raft team
+	print "+ interesting Files And Dirs takes awhile....\n";
+	my @FilesAndDirsDBlist = ('DB/raft-small-directories.db','DB/raft-small-files.db');
+	
+	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
+			print "+ Testing Files And Dirs with Database: $FilesAndDirsDB\n";
+			
+			open(FilesAndDirsDBFile, "+< $FilesAndDirsDB");
+			my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
+			
+			foreach my $JustDir (@parseFilesAndDirsDB){
+				chomp $JustDir;
+				# send req and check if it's valid
+				my $FilesAndDirsDir = $ua->get("http://$Host/" . $JustDir);
+				if($FilesAndDirsDir->is_success){
+					print "+ interesting File or Dir Found: /$JustDir\n";
+					print &analyzeResponse($FilesAndDirsDir->as_string() ,$JustDir);
+				}
+			}
+		close(FilesAndDirsDBFile);
 
 	}
 
@@ -525,11 +668,11 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 
 sub interesting{ # look for DBs, dirs, login pages, and emails and such
-	my @interestingStings = ('https:','password','passwd','admin','database','payment','bank','account','twitter.com','facebook.com','login','@.*?(com|org|net|tv|uk|mil|gov)');
+	my @interestingStings = ('https:','/wp-content/plugins/','password','passwd','admin','database','payment','bank','account','twitter.com','facebook.com','login','@.*?(com|org|net|tv|uk|mil|gov)','<!--#');
 	my $mineIndex = $ua->get("http://$Host/");
 	
 	foreach my $checkInterestingSting (@interestingStings){
-		my @IndexData = split(/</,$mineIndex->decoded_content); # im not yet certian slpliting by ('|") is the best method
+		my @IndexData = split(/</,$mineIndex->decoded_content);
 		
 		foreach my $splitIndex (@IndexData){
 			if($splitIndex =~ /$checkInterestingSting/i){
@@ -538,7 +681,7 @@ sub interesting{ # look for DBs, dirs, login pages, and emails and such
 					$splitIndex=~ s/\t//g;
 					$splitIndex=~ s/  / /g;
 				}
-				# the split chops of < so i just stick it in there to make it look pretty
+				# the split chops off < so i just stick it in there to make it look pretty
 				print "+ interesting text found in: <$splitIndex\n";
 			}
 			
