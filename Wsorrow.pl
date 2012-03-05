@@ -17,17 +17,18 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.5
+#VERSION 1.2.6
 
 use Net::Ping;
 use LWP::UserAgent;
 use HTTP::Response;
 use threads;
 use Getopt::Long;
-use strict;
-use warnings; #I turn this on just before release to look for bugs 
 
-print "+ Web sorrow 1.2.5 Version detection, misconfig, and enumeration tool\n";
+use strict;
+use warnings;
+
+print "+ Web sorrow 1.2.6 Version detection, misconfig, and enumeration tool\n";
 
 
 my $i;
@@ -57,7 +58,7 @@ if(!defined $Host){
 print q{
 usage:
 	-host [host] - Defines host to scan.
-	-proxy [ip:port] - use a proxy server [not on -Ps].
+	-proxy [ip:port] - use a proxy server [not on -Ps]
 	-S - Standard misconfig and other checks
 	-Ps - Scans ports 1-100 with tcp probes
 	-Eb - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
@@ -132,6 +133,8 @@ if($Host =~ /http(s|):\/\//i){ #check host input
 if(defined $ProxyServer){
 	&proxy(); # always make sure to put this first, lest we send un-proxied packets
 }
+
+my $resAnalIndex = $ua->get("http://$Host/"); # looks a bit out of place but needs to be before everything
 
 if(defined $S){
 	&Standard();
@@ -211,6 +214,9 @@ print "\n+ done :'(  -  Finshed on " . localtime;
 
 
 
+
+
+#----------------------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------------------------------------
 
 
@@ -231,31 +237,49 @@ sub analyzeResponse{ # heres were all the smart is...
 	my $checkURL = shift;
 	
 	#False Positive checking
-	my @PosibleErrorStrings = ('error 404','error 400','not found','cannot be found','could not find','bad request','server error','temporarily unavailable');
+	my @PosibleErrorStrings = ('404 error','error 404','error 400','not found','cannot be found','could not find','bad request','server error','temporarily unavailable','not exist');
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckResp =~ /$errorCheck/i){
-			return "- Page $checkURL Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
+			print "+ Page $checkURL Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
 		}
 	}
 	
+	
+	# check page size
+	my $IndexLength = length($resAnalIndex->as_string()); # get byte length of page
+	if(length($IndexLength) > 100) { chop $IndexLength;chop $IndexLength; } # make byte length aproximate
+	
+	my $respLength = length($CheckResp);
+	if(length($respLength) > 100) { chop $respLength;chop $respLength; }
+	
+	if($IndexLength eq $respLength){
+		print "+ the length of $checkURL is about the same as / This is MAYBE a redirect\n";
+	}
+	
+	if(length($CheckResp) < 50){
+		print "+ $checkURL is very small. this MAYBE a False Positive!";
+	}
+	
+	
+	# check headers
 	my @analheadersChop = split("\n\n", $CheckResp);
 	my @analHeaders = split("\n", $analheadersChop[0]); # tehe i know...
-		
+	
 	foreach my $analHString (@analHeaders){ # method used in sub Standard is not used because of custom msgs and there's not more then 2 headers per msg so why bother
 	
 		#the page is empty?
 		if($analHString =~ /Content-Length: (0|1)$/i){
-			return "+ Banner Graber - $checkURL contained header: \"$analHString\" MAYBE a False Positive!\n";
+			print "+ Banner Graber - $checkURL contained header: \"$analHString\" MAYBE a False Positive!\n";
 		}
 		
 		#auth page checking
 		if($analHString =~ /www-authenticate:/i){
-			return "+ Banner Graber - $checkURL contained header: \"$analHString\" Hmmmm\n";
+			print "+ Banner Graber - $checkURL contained header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#a hash?
 		if($analHString =~ /Content-MD5:/i){
-			return "+ Banner Graber - $checkURL contains header: \"$analHString\" Hmmmm\n";
+			print "+ Banner Graber - $checkURL contains header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#redircted me?
@@ -270,12 +294,16 @@ sub analyzeResponse{ # heres were all the smart is...
 		if($analHString =~ /location:/i){
 			my @checkLocation = split(/:/,$analHString);
 			my $lactionEnd = $checkLocation[1];
-			if($lactionEnd =! /$checkURL/i){
+			unless($lactionEnd =~ /$checkURL/i){
 				print "+ Banner Graber - The header: \"$analHString\" does not match the requested page: $checkURL MAYBE a redirect?\n";
 			}
 		}
 		
 	}
+	
+
+
+
 }
 
 sub genErrorString{
@@ -283,6 +311,8 @@ sub genErrorString{
 	for($i = 0;$i < 20;$i++){
 		$errorStringGGG .= chr((int(rand(93)) + 33)); # random 20 bytes to invoke 404 sometimes 400
 	}
+	
+	$errorStringGGG =~ s/(#|&|\?)//g; #strip anchors and q stings
 	return $errorStringGGG;
 }
 
@@ -310,9 +340,9 @@ sub dataBaseScan{ # use a database for scanning.
 		
 		# send req and validate
 		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
-		unless($checkMsgDir->is_error){
+		if($checkMsgDir->is_success){
 			print "+ $scanMSG: $JustDir  -  $MSG\n";
-			print &analyzeResponse($checkMsgDir->as_string() ,$JustDir);
+			&analyzeResponse($checkMsgDir->as_string() ,$JustDir);
 		}
 }
 
@@ -325,10 +355,13 @@ sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
 		my $checkDir = $ua->get("http://$Host/" . $DataFromDBNonSynt);
 		if($checkDir->is_success){
 			print "+ $scanMSGNonSynt: /$DataFromDBNonSynt\n";
-			print &analyzeResponse($checkDir->as_string() ,$DataFromDBNonSynt);
+			&analyzeResponse($checkDir->as_string() ,$DataFromDBNonSynt);
 		}
 }
 
+#sub output{
+#
+#}
 
 
 #---------------------------------------------------------------------------------------------------------------
@@ -358,7 +391,7 @@ sub Standard{ #some standard stuff
 		#robots.txt
 		my $roboTXT = $ua->get("http://$Host/robots.txt");
 		unless($roboTXT->is_error){
-			print &analyzeResponse($roboTXT->as_string() ,"/robots.txt");
+			&analyzeResponse($roboTXT->as_string() ,"/robots.txt");
 			
 			my $Opt = &PromtUser("+ robots.txt found! This could be interesting!\n+ would you like me to display it? (y/n) ? ");
 
@@ -385,19 +418,19 @@ sub Standard{ #some standard stuff
 				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/i){
 					# extra checking (<a.*>last modified</a>, ...)
 					print "+ Directory indexing found in $dir - AND it looks like an Apache server!\n";
-					print &analyzeResponse($IndexFind->as_string() ,$dir);
+					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# Tomcat
 				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
 					print "+ Directory indexing found in $dir - AND it looks like an Apache Tomcat server!\n";
-					print &analyzeResponse($IndexFind->as_string() ,$dir);
+					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# iis
 				if($IndexFind->content =~ /<body><H1>$Host - $dir/i){
 					print "+ Directory indexing found in $dir - AND it looks like an IIS server!\n";
-					print &analyzeResponse($IndexFind->as_string() ,$dir);
+					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 				
 			}
@@ -429,8 +462,6 @@ sub Standard{ #some standard stuff
 		
 		
 		
-		
-		
 		# Some servers just give you a 200 with every req. lets see
 		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi');
 		foreach my $Extention (@webExtentions){
@@ -439,7 +470,18 @@ sub Standard{ #some standard stuff
 			
 			if($check200->is_success){
 				print "+ /$testErrorString" . $Extention . " responded with code: " . $check200->code . " the server might just responde with this code even when the dir, file, or Extention: $Extention doesn't exist! any results from this server may be void\n";
+				&analyzeResponse($check200->as_string() ,"$testErrorString" . $Extention);
 			}
+		}
+		
+		#does the site have a mobile page?
+		my $MobileUA = LWP::UserAgent->new;
+		$MobileUA->agent('Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0');
+		my $mobilePage = $MobileUA->get("http://$Host/");
+		my $regularPage = $ua->get("http://$Host/");
+		
+		unless($mobilePage->content() eq $regularPage->content()){
+			print "+ index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
 		}
 }
 
@@ -601,7 +643,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
 	print "+ interesting Files And Dirs takes awhile....\n";
-	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
+	my @FilesAndDirsDBlist = ('DB/raft-small-directories.db','DB/raft-small-files.db',);
 	
 	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
 			print "+ Testing Files And Dirs with Database: $FilesAndDirsDB\n";
@@ -662,7 +704,7 @@ sub interesting{ # look for DBs, dirs, login pages, and emails and such
 		
 		foreach my $splitIndex (@IndexData){
 			if($splitIndex =~ /$checkInterestingSting/i){
-				while($splitIndex =~ "\n" or $splitIndex =~ "\t" or $splitIndex =~ "  "){
+				while($splitIndex =~ /(\n|\t|  )/){
 					$splitIndex =~ s/\n/ /g;
 					$splitIndex=~ s/\t//g;
 					$splitIndex=~ s/  / /g;
