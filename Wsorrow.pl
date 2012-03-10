@@ -17,33 +17,35 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.6
+#VERSION 1.2.7
 
 use Net::Ping;
 use LWP::UserAgent;
+use LWP::ConnCache;
 use HTTP::Response;
+use Digest::MD5;
 use threads;
 use Getopt::Long;
 
 use strict;
 use warnings;
 
-print "+ Web sorrow 1.2.6 Version detection, misconfig, and enumeration tool\n";
+print "+ web sorrow 1.2.7 Version detection, misconfig, and enumeration tool\n";
 
 
 my $i;
 my $port = 0;
 my $Opt;
-my $ua = LWP::UserAgent->new;
-$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
+my $ua = LWP::UserAgent->new(conn_cache => 1);
+$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
+$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
 
 GetOptions("host=s" => \my $Host, # host ip or domain
 		"Ps" => \my $Ps, # port scan
 		"Eb" => \my $Eb, # error begging
 		"S" => \my $S, # Standard checks
-		"cms" => \my $cms, # Looks for version info with default cms files
 		"auth" => \my $auth, # MEH!!!!!! self explanitory
 		"cmsPlugins" => \my $cmsPlugins, # cms plugins
 		"I" => \my $interesting, # find interesting text in /index.whatever
@@ -62,7 +64,6 @@ usage:
 	-S - Standard misconfig and other checks
 	-Ps - Scans ports 1-100 with tcp probes
 	-Eb - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
-	-cms - Looks for version info with default cms files
 	-auth - Dictionary attack to find login pages [not passwords]
 	-cmsPlugins - check for cms plugins [outdated 2010]
 	-I - Find interesting strings in html [very verbose]
@@ -73,49 +74,18 @@ usage:
 Example:
 	perl Wsorrow.pl -host scanme.nmap.org -S
 	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps
-	perl Wsorrow.pl -host 66.11.227.35 -S -cms -I -proxy 129.255.1.17:3128
+	perl Wsorrow.pl -host 66.11.227.35 -S -Ws -I -proxy 129.255.1.17:3128
 };
 exit();
 }
 
 
 
-print "-" x 70 . "\n";
+
 print "+ Host: $Host\n";
+
 if(defined $ProxyServer){
 	print "+ Proxy: $ProxyServer\n";
-}
-
-if(defined $e){
-	print "+ Enabled: EVERYTHING!\n";
-}
-
-if(defined $Ps){
-	print "+ Enabled: Port Scan\n";
-}
-if(defined $Eb){
-	print "+ Enabled: Error Begging\n";
-}
-if(defined $S){
-	print "+ Enabled: Web sorrow Standard checks\n";
-}
-if(defined $cms){
-	print "+ Enabled: cms testing\n";
-}
-if(defined $auth){
-	print "+ Enabled: Auth Dict. attack\n";
-}
-if(defined $cmsPlugins){
-	print "+ Enabled: cms plugins testing\n";
-}
-if(defined $interesting){
-	print "+ Enabled: mine interesting text\n";
-}
-if(defined $Fd){
-	print "+ Enabled: interesting files and dirs\n";
-}
-if(defined $Ws){
-	print "+ Enabled: Web Service testing\n";
 }
 print "+ Start Time: " . localtime() . "\n";
 print "-" x 70 . "\n";
@@ -150,11 +120,6 @@ if(defined $Eb){
 	&ErrorBegging();
 }
 
-if(defined $cms){
-	print "+ running cms version detection scanner\n";
-	&cms();
-}
-
 if(defined $auth){
 	print "+ running auth aka login page finder\n";
 	&auth();
@@ -182,15 +147,13 @@ if(defined $Ws){
 
 
 if(defined $e){
+	&Standard();
 
 	print "+ running port scanner\n";
 	&PortScan();
 	
 	print "+ runnning  Error begging scanner\n";
 	&ErrorBegging();
-	
-	print "+ running cms version detection scanner\n";
-	&cms();
 	
 	print "+ running auth aka login page finder\n";
 	&auth();
@@ -236,11 +199,15 @@ sub analyzeResponse{ # heres were all the smart is...
 	my $CheckResp = shift;
 	my $checkURL = shift;
 	
+	unless($checkURL =~ /\//){
+		$checkURL = "/" . $checkURL;
+	}
+	
 	#False Positive checking
-	my @PosibleErrorStrings = ('404 error','error 404','error 400','not found','cannot be found','could not find','bad request','server error','temporarily unavailable','not exist');
+	my @PosibleErrorStrings = ('404 error','error 404','error 400','not found','cannot be found','could not find','can’t find','bad request','server error','temporarily unavailable','not exist','unable to open','check your spelling');
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckResp =~ /$errorCheck/i){
-			print "+ Page $checkURL Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
+			print "+ Item \"$checkURL\" Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
 		}
 	}
 	
@@ -253,11 +220,11 @@ sub analyzeResponse{ # heres were all the smart is...
 	if(length($respLength) > 100) { chop $respLength;chop $respLength; }
 	
 	if($IndexLength eq $respLength){
-		print "+ the length of $checkURL is about the same as / This is MAYBE a redirect\n";
+		print "+ the length of \"$checkURL\" is about the same as / This is MAYBE a redirect\n";
 	}
 	
-	if(length($CheckResp) < 50){
-		print "+ $checkURL is very small. this MAYBE a False Positive!";
+	if(length($CheckResp) < 100){
+		print "+ \"$checkURL\" is very small. this MAYBE a False Positive!";
 	}
 	
 	
@@ -269,26 +236,26 @@ sub analyzeResponse{ # heres were all the smart is...
 	
 		#the page is empty?
 		if($analHString =~ /Content-Length: (0|1)$/i){
-			print "+ Banner Graber - $checkURL contained header: \"$analHString\" MAYBE a False Positive!\n";
+			print "+ Banner Graber - \"$checkURL\" contained header: \"$analHString\" MAYBE a False Positive or is empty!\n";
 		}
 		
 		#auth page checking
 		if($analHString =~ /www-authenticate:/i){
-			print "+ Banner Graber - $checkURL contained header: \"$analHString\" Hmmmm\n";
+			print "+ Banner Graber - \"$checkURL\" contained header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#a hash?
 		if($analHString =~ /Content-MD5:/i){
-			print "+ Banner Graber - $checkURL contains header: \"$analHString\" Hmmmm\n";
+			print "+ Banner Graber - \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#redircted me?
 		if($analHString =~ /refresh:/i){
-			print "+ Banner Graber - $checkURL - looks like it redirects. header: \"$analHString\"\n";
+			print "+ Banner Graber - \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
 		}
 		
 		if($analHString =~ /http\/1.1 30(1|2|7)/i){
-			print "+ Banner Graber - $checkURL - looks like it redirects. header: \"$analHString\"\n";
+			print "+ Banner Graber - \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
 		}
 		
 		if($analHString =~ /location:/i){
@@ -341,7 +308,7 @@ sub dataBaseScan{ # use a database for scanning.
 		# send req and validate
 		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
 		if($checkMsgDir->is_success){
-			print "+ $scanMSG: $JustDir  -  $MSG\n";
+			print "+ $scanMSG: \"$JustDir\"  -  $MSG\n";
 			&analyzeResponse($checkMsgDir->as_string() ,$JustDir);
 		}
 }
@@ -354,14 +321,27 @@ sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
 		# send req and check if it's valid
 		my $checkDir = $ua->get("http://$Host/" . $DataFromDBNonSynt);
 		if($checkDir->is_success){
-			print "+ $scanMSGNonSynt: /$DataFromDBNonSynt\n";
+			print "+ $scanMSGNonSynt: \"/$DataFromDBNonSynt\"\n";
 			&analyzeResponse($checkDir->as_string() ,$DataFromDBNonSynt);
 		}
 }
 
-#sub output{
-#
-#}
+sub matchScan{
+	my $checkMatchFromDB = shift;
+	my $checkMatch = shift;
+	my $matchScanMSG = shift;
+	chomp $checkMatchFromDB;
+	
+	
+		my @matchScanLineFromDB = split(';',$checkMatchFromDB);
+		my $msJustString = $matchScanLineFromDB[0]; #String to find
+		my $msMSG = $matchScanLineFromDB[1]; #this is the message printed if it isn't an error
+
+		if($checkMatch =~ /$msJustString/){
+			print "+ $matchScanMSG: $msMSG\n";
+		}
+		
+}
 
 
 #---------------------------------------------------------------------------------------------------------------
@@ -417,19 +397,19 @@ sub Standard{ #some standard stuff
 				# Apache
 				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/i){
 					# extra checking (<a.*>last modified</a>, ...)
-					print "+ Directory indexing found in $dir - AND it looks like an Apache server!\n";
+					print "+ Directory indexing found in \"$dir\" - AND it looks like an Apache server!\n";
 					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# Tomcat
 				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-					print "+ Directory indexing found in $dir - AND it looks like an Apache Tomcat server!\n";
+					print "+ Directory indexing found in \"$dir\" - AND it looks like an Apache Tomcat server!\n";
 					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# iis
 				if($IndexFind->content =~ /<body><H1>$Host - $dir/i){
-					print "+ Directory indexing found in $dir - AND it looks like an IIS server!\n";
+					print "+ Directory indexing found in \"$dir\" - AND it looks like an IIS server!\n";
 					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 				
@@ -579,24 +559,6 @@ sub ErrorBegging{
 
 
 
-sub cms{
-	open(cmsDB, "+< DB/CMS.db");
-	my @parseCMSdb = <cmsDB>;
-	
-	my @cmsDirMsg;
-	foreach my $lineIDK (@parseCMSdb){
-		push(@cmsDirMsg, $lineIDK);
-	}
-	
-	foreach my $cmsDirAndMsg (@cmsDirMsg){
-		&dataBaseScan($cmsDirAndMsg,'cms version info Found'); #this func can only be called when the DB uses the /dir;msg format
-	}
-
-	close(cmsDB);
-}
-
-
-
 
 sub auth{ # this DB is pretty good but not complete
 	open(authDB, "+< DB/login.db");
@@ -664,7 +626,7 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 
 
-sub webServices{ # needs a bit of refining and expansion
+sub webServices{ # as of v 1.2.7 it's acually worth the time typing "-Ws" to use it! HORAYYY
 	open(webServicesDB, "+< DB/web-services.db");
 	my @parsewebServicesdb = <webServicesDB>;
 	
@@ -678,25 +640,73 @@ sub webServices{ # needs a bit of refining and expansion
 
 		
 	foreach my $ServiceString (@webServicesStringMsg){
-		my @webServicesLineFromDB = split(';',$ServiceString);
-		my $JustString = $webServicesLineFromDB[0]; #String to find in page
-		my $MSG = $webServicesLineFromDB[1]; #this is the message printed if the url req isn't an error
-
-		if($webServicesTestPage->decoded_content =~ /$JustString/i){
-			print "+ Web Service Found: $MSG";
-		}
-		
+		&matchScan($ServiceString,$webServicesTestPage->content,"Web service Found");
 	}
 
 
 	close(webServicesDB);
+	
+	&faviconMD5(); # i'll just make a new sub
+	&cms();
+}
+
+
+
+
+sub faviconMD5{ # thanks to OWASP
+	
+	my $favicon = $ua->get("http://$Host/favicon.ico");
+	
+	if($favicon->is_success){
+		&analyzeResponse($favicon->as_string() ,"/favicon.ico");
+	
+		#make checksum
+		my $MD5 = Digest::MD5->new;
+		$MD5->add($favicon->content);
+		my $checksum = $MD5->hexdigest;
+		
+
+		open(faviconMD5DB, "+< DB/favicon.db");
+		my @faviconMD5db = <faviconMD5DB>;
+		
+		
+		my @faviconMD5StringMsg; # split DB by line
+		foreach my $lineIDK (@faviconMD5db){
+			push(@faviconMD5StringMsg, $lineIDK);
+		}
+		
+		foreach my $faviconMD5String (@faviconMD5StringMsg){
+			&matchScan($faviconMD5String,$checksum,"Web service Found (favicon.ico)");
+		}
+
+		close(faviconMD5DB);
+	}
+}
+
+
+
+
+sub cms{
+	open(cmsDB, "+< DB/CMS.db");
+	my @parseCMSdb = <cmsDB>;
+	
+	my @cmsDirMsg;
+	foreach my $lineIDK (@parseCMSdb){
+		push(@cmsDirMsg, $lineIDK);
+	}
+	
+	foreach my $cmsDirAndMsg (@cmsDirMsg){
+		&dataBaseScan($cmsDirAndMsg,'cms version info Found'); #this func can only be called when the DB uses the /dir;msg format
+	}
+
+	close(cmsDB);
 }
 
 
 
 
 sub interesting{ # look for DBs, dirs, login pages, and emails and such
-	my @interestingStings = ('https:\/\/','/cgi-bin','/wp-content/plugins/','password','passwd','admin','database','payment','bank','account','twitter.com','facebook.com','login','@.*?(com|org|net|tv|uk|mil|gov)','<!--#');
+	my @interestingStings = ('https:\/\/','/cgi-bin','/wp-content/plugins/','password','passwd','admin','database','payment','bank','account','twitter.com','facebook.com','login','@.*?(com|org|net|tv|uk|au|edu|mil|gov)','<!--#');
 	my $mineIndex = $ua->get("http://$Host/");
 	
 	foreach my $checkInterestingSting (@interestingStings){
