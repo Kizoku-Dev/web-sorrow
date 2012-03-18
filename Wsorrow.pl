@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.7
+#VERSION 1.2.8
 
 use Net::Ping;
 use LWP::UserAgent;
@@ -30,7 +30,7 @@ use Getopt::Long;
 use strict;
 use warnings;
 
-print "+ web sorrow 1.2.7 Version detection, misconfig, and enumeration tool\n";
+print "\n+ Web Sorrow 1.2.8 Version detection, misconfig, and enumeration tool\n";
 
 
 my $i;
@@ -39,6 +39,7 @@ my $Opt;
 
 my $ua = LWP::UserAgent->new(conn_cache => 1);
 $ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
+
 $ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
 
@@ -47,7 +48,7 @@ GetOptions("host=s" => \my $Host, # host ip or domain
 		"Eb" => \my $Eb, # error begging
 		"S" => \my $S, # Standard checks
 		"auth" => \my $auth, # MEH!!!!!! self explanitory
-		"cmsPlugins" => \my $cmsPlugins, # cms plugins
+		"cmsPlugins=s" => \my $cmsPlugins, # cms plugins
 		"I" => \my $interesting, # find interesting text in /index.whatever
 		"Ws" => \my $Ws, # Web services
 		"e" => \my $e, # EVERYTHINGGGGGGGG
@@ -59,21 +60,23 @@ GetOptions("host=s" => \my $Host, # host ip or domain
 if(!defined $Host){
 print q{
 usage:
-	-host [host] - Defines host to scan.
-	-proxy [ip:port] - use a proxy server [not on -Ps]
-	-S - Standard misconfig and other checks
-	-Ps - Scans ports 1-100 with tcp probes
-	-Eb - Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
-	-auth - Dictionary attack to find login pages [not passwords]
-	-cmsPlugins - check for cms plugins [outdated 2010]
-	-I - Find interesting strings in html [very verbose]
-	-Fd - look for common interesting files and dirs
-	-Ws - look for Web Services on host. such as hosting porvider or blogging service
-	-e - everything. run all scans
+	-host [host] -- Defines host to scan.
+	-proxy [ip:port] -- use a proxy server (not on -Ps)
+	-S -- Standard misconfig and other checks
+	-Ps -- Scans ports 1-100 with tcp probes
+	-Eb -- Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
+	-auth -- Dictionary attack to find login pages (not passwords)
+	-cmsPlugins [dp | jm | wp | all] -- check for cms plugins. dp = drupal, jm = joomla, wp = wordpress (db's a bit outdated 2010)
+	
+	-I -- Find interesting strings in html (very verbose)
+	-Fd -- look for common interesting files and dirs
+	-Ws -- look for Web Services on host. such as hosting porvider, blogging service, favicon fingerprinting, and cms version info
+	
+	-e -- everything. run all scans
 
 Example:
 	perl Wsorrow.pl -host scanme.nmap.org -S
-	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps
+	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps -cmsPlugins dp,jm
 	perl Wsorrow.pl -host 66.11.227.35 -S -Ws -I -proxy 129.255.1.17:3128
 };
 exit();
@@ -111,68 +114,71 @@ if(defined $S){
 }
 
 if(defined $Ps){
-	print "+ running port scanner\n";
+	print "*** running port scanner ***\n"; #the *'s are for you to spot them more easly in the sea of output
 	&PortScan();
 }
 
 if(defined $Eb){
-	print "+ runnning  Error begging scanner\n";
+	print "*** runnning  Error begging scanner ***\n";
 	&ErrorBegging();
 }
 
 if(defined $auth){
-	print "+ running auth aka login page finder\n";
+	print "*** running auth aka login page finder ***\n";
 	&auth();
 }
 
 if(defined $cmsPlugins){
-	print "+ running cms plugin detection scanner\n";
+	print "*** running cms plugin detection scanner ***\n";
 	&cmsPlugins();
 }
 
 if(defined $interesting){
-	print "+ running Interesting text scanner\n";
+	print "*** running Interesting text scanner ***\n";
 	&interesting();
 }
 
+if(defined $Ws){
+	print "*** running Web Service scanner ***\n";
+	&webServices();
+}
+
 if(defined $Fd){
-	print "+ running Interesting files and dirs scanner\n";
+	print "*** running Interesting files and dirs scanner ***\n";
 	&FilesAndDirsGoodies();
 }
 
-if(defined $Ws){
-	print "+ running Web Service scanner\n";
-	&webServices();
-}
+
 
 
 if(defined $e){
 	&Standard();
 
-	print "+ running port scanner\n";
+	print "*** running port scanner ***\n";
 	&PortScan();
 	
-	print "+ runnning  Error begging scanner\n";
+	print "*** runnning  Error begging scanner ***\n";
 	&ErrorBegging();
 	
-	print "+ running auth aka login page finder\n";
+	print "*** running auth aka login page finder ***\n";
 	&auth();
 	
-	print "+ running Interesting text scanner\n";
+	print "*** running Interesting text scanner ***\n";
 	&interesting();
 	
-	print "+ running Web Service scanner\n";
+	print "*** running Web Service scanner ***\n";
 	&webServices();
 	
-	print "+ running Interesting files and dirs scanner\n";
+	print "*** running Interesting files and dirs scanner ***\n";
 	&FilesAndDirsGoodies();
 	
-	print "+ running cms plugin detection scanner\n";
+	print "*** running cms plugin detection scanner ***\n";
 	&cmsPlugins();
 
 }
 
-print "\n+ done :'(  -  Finshed on " . localtime;
+print "-" x 70 . "\n";
+print "+ done :'(  -  Finshed on " . localtime;
 
 
 
@@ -220,11 +226,11 @@ sub analyzeResponse{ # heres were all the smart is...
 	if(length($respLength) > 100) { chop $respLength;chop $respLength; }
 	
 	if($IndexLength eq $respLength){
-		print "+ the length of \"$checkURL\" is about the same as / This is MAYBE a redirect\n";
+		print "+ Item \"$checkURL\" is about the same length as / This is MAYBE a redirect\n";
 	}
 	
 	if(length($CheckResp) < 100){
-		print "+ \"$checkURL\" is very small. this MAYBE a False Positive!";
+		print "+ Item \"$checkURL\" is very small. this MAYBE a False Positive!";
 	}
 	
 	
@@ -236,33 +242,33 @@ sub analyzeResponse{ # heres were all the smart is...
 	
 		#the page is empty?
 		if($analHString =~ /Content-Length: (0|1)$/i){
-			print "+ Banner Graber - \"$checkURL\" contained header: \"$analHString\" MAYBE a False Positive or is empty!\n";
+			print "+ Item \"$checkURL\" contained header: \"$analHString\" MAYBE a False Positive or is empty!\n";
 		}
 		
 		#auth page checking
 		if($analHString =~ /www-authenticate:/i){
-			print "+ Banner Graber - \"$checkURL\" contained header: \"$analHString\" Hmmmm\n";
+			print "+ Item \"$checkURL\" contained header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#a hash?
 		if($analHString =~ /Content-MD5:/i){
-			print "+ Banner Graber - \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";
+			print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#redircted me?
 		if($analHString =~ /refresh:/i){
-			print "+ Banner Graber - \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
+			print "+ Item \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
 		}
 		
 		if($analHString =~ /http\/1.1 30(1|2|7)/i){
-			print "+ Banner Graber - \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
+			print "+ Item \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
 		}
 		
 		if($analHString =~ /location:/i){
 			my @checkLocation = split(/:/,$analHString);
 			my $lactionEnd = $checkLocation[1];
-			unless($lactionEnd =~ /$checkURL/i){
-				print "+ Banner Graber - The header: \"$analHString\" does not match the requested page: $checkURL MAYBE a redirect?\n";
+			unless($lactionEnd =~ /$checkURL/i){ 
+				print "+ Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
 			}
 		}
 		
@@ -362,7 +368,7 @@ sub Standard{ #some standard stuff
 		foreach my $HString (@headers){
 			foreach my $checkSingleHeader (@checkHeaders){
 				if($HString =~ /$checkSingleHeader/i){
-					print "+ Banner Graber - " . $HString . "\n";
+					print "+ Informational Header: \"$HString\"\n";
 				}
 			}
 		}
@@ -519,7 +525,6 @@ sub ErrorBegging{
 			my $_404response = shift;
 		
 			if($_404response->is_error) {
-				print "+ Error Begging " . $_404response->code . " - ";
 				my $siteHTML = $_404response->decoded_content;
 				
 				
@@ -549,7 +554,7 @@ sub ErrorBegging{
 						print "\n+ Found 404 page but not printing. To Big :(\n";
 					}
 				} else {
-					print $siteNaked . "\n\n";
+					print "+ Error page found  -- " . $siteNaked . "\n\n";
 				}
 			}
 		}
@@ -582,7 +587,23 @@ sub auth{ # this DB is pretty good but not complete
 
 sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 	print "+ CMS Plugins takes awhile....\n";
-	my @cmsPluginDBlist = ('DB/drupal_plugins.db','DB/joomla_plugins.db','DB/wp_plugins.db');
+	my @cmsPluginDBlist;
+	
+	if($cmsPlugins =~ /dp/i){
+		push(@cmsPluginDBlist, 'DB/drupal_plugins.db');
+	}
+	
+	if($cmsPlugins =~ /jm/i){
+		push(@cmsPluginDBlist, 'DB/joomla_plugins.db');
+	}
+	
+	if($cmsPlugins =~ /wp/i){
+		push(@cmsPluginDBlist, 'DB/wp_plugins.db');
+	}
+	
+	if($cmsPlugins =~ /all/i ){
+		@cmsPluginDBlist = ('DB/drupal_plugins.db', 'DB/joomla_plugins.db', 'DB/wp_plugins.db');
+	}
 	
 	foreach my $cmsPluginDB (@cmsPluginDBlist){
 		print "+ Testing Plugins with Database: $cmsPluginDB\n";
@@ -605,7 +626,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
 	print "+ interesting Files And Dirs takes awhile....\n";
-	my @FilesAndDirsDBlist = ('DB/raft-small-directories.db','DB/raft-small-files.db',);
+	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
 	
 	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
 			print "+ Testing Files And Dirs with Database: $FilesAndDirsDB\n";
@@ -696,7 +717,7 @@ sub cms{
 	}
 	
 	foreach my $cmsDirAndMsg (@cmsDirMsg){
-		&dataBaseScan($cmsDirAndMsg,'cms version info Found'); #this func can only be called when the DB uses the /dir;msg format
+		&dataBaseScan($cmsDirAndMsg,'Web service Found (cms)'); #this func can only be called when the DB uses the /dir;msg format
 	}
 
 	close(cmsDB);
@@ -716,13 +737,13 @@ sub interesting{ # look for DBs, dirs, login pages, and emails and such
 			if($splitIndex =~ /$checkInterestingSting/i){
 				while($splitIndex =~ /(\n|\t|  )/){
 					$splitIndex =~ s/\n/ /g;
-					$splitIndex=~ s/\t//g;
-					$splitIndex=~ s/  / /g;
+					$splitIndex =~ s/\t//g;
+					$splitIndex =~ s/  / /g;
 				}
 				# the split chops off < so i just stick it in there to make it look pretty
-				print "+ interesting text found in: <$splitIndex\n";
+				print "+ Interesting text found: <$splitIndex\n";
 			}
-			
+		
 		}
 
 	}
