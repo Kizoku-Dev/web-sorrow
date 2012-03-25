@@ -17,168 +17,125 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.8
+#VERSION 1.2.9
 
-use Net::Ping;
 use LWP::UserAgent;
 use LWP::ConnCache;
 use HTTP::Response;
 use Digest::MD5;
-use threads;
 use Getopt::Long;
+use encoding "utf-8";
 
 use strict;
 use warnings;
 
-print "\n+ Web Sorrow 1.2.8 Version detection, misconfig, and enumeration tool\n";
+
+		print "\n+ Web Sorrow 1.2.9 Version detection, misconfig, and enumeration tool\n";
 
 
-my $i;
-my $port = 0;
-my $Opt;
+		my $i;
+		my $port = 0;
+		my $Opt;
+		my $Host = "none";
 
-my $ua = LWP::UserAgent->new(conn_cache => 1);
-$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
+		my $ua = LWP::UserAgent->new(conn_cache => 1);
+		$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
 
-$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
-
-
-GetOptions("host=s" => \my $Host, # host ip or domain
-		"Ps" => \my $Ps, # port scan
-		"Eb" => \my $Eb, # error begging
-		"S" => \my $S, # Standard checks
-		"auth" => \my $auth, # MEH!!!!!! self explanitory
-		"cmsPlugins=s" => \my $cmsPlugins, # cms plugins
-		"I" => \my $interesting, # find interesting text in /index.whatever
-		"Ws" => \my $Ws, # Web services
-		"e" => \my $e, # EVERYTHINGGGGGGGG
-		"proxy=s" => \my $ProxyServer, #use a proxy
-		"Fd" => \my $Fd, # files and dirs
-);
-
-# usage
-if(!defined $Host){
-print q{
-usage:
-	-host [host] -- Defines host to scan.
-	-proxy [ip:port] -- use a proxy server (not on -Ps)
-	-S -- Standard misconfig and other checks
-	-Ps -- Scans ports 1-100 with tcp probes
-	-Eb -- Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
-	-auth -- Dictionary attack to find login pages (not passwords)
-	-cmsPlugins [dp | jm | wp | all] -- check for cms plugins. dp = drupal, jm = joomla, wp = wordpress (db's a bit outdated 2010)
-	
-	-I -- Find interesting strings in html (very verbose)
-	-Fd -- look for common interesting files and dirs
-	-Ws -- look for Web Services on host. such as hosting porvider, blogging service, favicon fingerprinting, and cms version info
-	
-	-e -- everything. run all scans
-
-Example:
-	perl Wsorrow.pl -host scanme.nmap.org -S
-	perl Wsorrow.pl -host scanme.nmap.org -Eb -Ps -cmsPlugins dp,jm
-	perl Wsorrow.pl -host 66.11.227.35 -S -Ws -I -proxy 129.255.1.17:3128
-};
-exit();
-}
+		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
 
+		GetOptions("host=s" => \$Host, # host ip or domain
+			"Eb" => \my $Eb, # error begging
+			"S" => \my $S, # Standard checks
+			"auth" => \my $auth, # MEH!!!!!! self explanitory
+			"cmsPlugins=s" => \my $cmsPlugins, # cms plugins
+			"I" => \my $interesting, # find interesting text in /index.whatever
+			"Ws" => \my $Ws, # Web services
+			"e" => \my $e, # EVERYTHINGGGGGGGG
+			"proxy=s" => \my $ProxyServer, #use a proxy
+			"Fd" => \my $Fd, # files and dirs
+		);
+
+		# usage
+		if($Host eq "none"){
+			&usage();
+			exit();
+		}
 
 
-print "+ Host: $Host\n";
+		print "+ Host: $Host\n";
 
-if(defined $ProxyServer){
-	print "+ Proxy: $ProxyServer\n";
-}
-print "+ Start Time: " . localtime() . "\n";
-print "-" x 70 . "\n";
-
-
-if($Host =~ /http(s|):\/\//i){ #check host input
-	print "- No \"http:/\/\" please! just domain name or IP ADDR\n";
-	exit();
-}
+		if(defined $ProxyServer){
+			print "+ Proxy: $ProxyServer\n";
+		}
+		print "+ Start Time: " . localtime() . "\n";
+		print "-" x 70 . "\n";
 
 
-#triger scans
+		if($Host =~ /http(s|):\/\//i){ #check host input
+			print "- No \"http:/\/\" please! just domain name or IP ADDR\n";
+			exit();
+		}
 
 
-if(defined $ProxyServer){
-	&proxy(); # always make sure to put this first, lest we send un-proxied packets
-}
+		#triger scans
 
-my $resAnalIndex = $ua->get("http://$Host/"); # looks a bit out of place but needs to be before everything
 
-if(defined $S){
-	&Standard();
-}
+		if(defined $ProxyServer){
+			&proxy(); # always make sure to put this first, lest we send un-proxied packets
+		}
 
-if(defined $Ps){
-	print "*** running port scanner ***\n"; #the *'s are for you to spot them more easly in the sea of output
-	&PortScan();
-}
+		&checkHostAvailibilty();
+		my $resAnalIndex = $ua->get("http://$Host/");
+		
+		if(defined $S){
+			&Standard();
+		}
 
-if(defined $Eb){
-	print "*** runnning  Error begging scanner ***\n";
-	&ErrorBegging();
-}
+		if(defined $Eb){
+			&ErrorBegging();
+		}
 
-if(defined $auth){
-	print "*** running auth aka login page finder ***\n";
-	&auth();
-}
+		if(defined $auth){
+			&auth();
+		}
 
-if(defined $cmsPlugins){
-	print "*** running cms plugin detection scanner ***\n";
-	&cmsPlugins();
-}
+		if(defined $cmsPlugins){
+			&cmsPlugins();
+		}
 
-if(defined $interesting){
-	print "*** running Interesting text scanner ***\n";
-	&interesting();
-}
+		if(defined $interesting){
+			&interesting();
+		}
 
-if(defined $Ws){
-	print "*** running Web Service scanner ***\n";
-	&webServices();
-}
+		if(defined $Ws){
+			&webServices();
+		}
 
-if(defined $Fd){
-	print "*** running Interesting files and dirs scanner ***\n";
-	&FilesAndDirsGoodies();
-}
+		if(defined $Fd){
+			&FilesAndDirsGoodies();
+		}
+
+		if(defined $e){
+			&runAll();
+		}
+		
+		
+		sub runAll{
+			&Standard();
+			&ErrorBegging();
+			&auth();
+			&interesting();
+			&webServices();
+			&FilesAndDirsGoodies();
+			&cmsPlugins();
+		}
 
 
 
 
-if(defined $e){
-	&Standard();
-
-	print "*** running port scanner ***\n";
-	&PortScan();
-	
-	print "*** runnning  Error begging scanner ***\n";
-	&ErrorBegging();
-	
-	print "*** running auth aka login page finder ***\n";
-	&auth();
-	
-	print "*** running Interesting text scanner ***\n";
-	&interesting();
-	
-	print "*** running Web Service scanner ***\n";
-	&webServices();
-	
-	print "*** running Interesting files and dirs scanner ***\n";
-	&FilesAndDirsGoodies();
-	
-	print "*** running cms plugin detection scanner ***\n";
-	&cmsPlugins();
-
-}
-
-print "-" x 70 . "\n";
-print "+ done :'(  -  Finshed on " . localtime;
+		print "-" x 70 . "\n";
+		print "+ done :'(  -  Finshed on " . localtime;
 
 
 
@@ -193,6 +150,41 @@ print "+ done :'(  -  Finshed on " . localtime;
 
 # non scanning subs for clean code and speed 'n stuff
 
+sub usage{
+
+print q{
+usage:
+	-host [host] -- Defines host to scan.
+	-proxy [ip:port] -- use a proxy server
+	-S -- Standard misconfig and other checks
+	-Eb -- Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
+	-auth -- Dictionary attack to find login pages (not passwords)
+	-cmsPlugins [dp | jm | wp | all] -- check for cms plugins. dp = drupal, jm = joomla, wp = wordpress (db's a bit outdated 2010)
+	-I -- Find interesting strings in html (very verbose)
+	-Fd -- look for common interesting files and dirs
+	-Ws -- look for Web Services on host. such as hosting porvider, blogging service, favicon fingerprinting, and cms version info
+	-e -- everything. run all scans
+
+Example:
+	perl Wsorrow.pl -host scanme.nmap.org -S
+	perl Wsorrow.pl -host scanme.nmap.org -Eb -cmsPlugins dp,jm
+	perl Wsorrow.pl -host 66.11.227.35 -S -Ws -I -proxy 129.255.1.17:3128
+};
+
+}
+
+sub checkHostAvailibilty{
+	my $CheckHost = $ua->get("http://$Host/"); # this is used for responceAnal too
+	if(length($CheckHost->content) == 0 or $CheckHost->is_error){
+		print "Host: $Host maybe offline is unavailble!\n";
+		&PromtUser('Do you wish to continue anyway (y/n) ? ');
+		if($Opt =~ /n/i){
+			print "Exiting. Good Bye!\n";
+			exit();
+		}
+	}
+}
+
 sub PromtUser{ # Yes or No?
 	my $PromtMSG = shift; # i find the shift is much sexyer then then @_
 	
@@ -206,31 +198,62 @@ sub analyzeResponse{ # heres were all the smart is...
 	my $checkURL = shift;
 	
 	unless($checkURL =~ /\//){
-		$checkURL = "/" . $checkURL;
+		$checkURL = "/" . $checkURL; # makes for good output
 	}
 	
 	#False Positive checking
-	my @PosibleErrorStrings = ('404 error','error 404','error 400','not found','cannot be found','could not find','can’t find','bad request','server error','temporarily unavailable','not exist','unable to open','check your spelling');
+	my @PosibleErrorStrings = (
+								'404 error',
+								'404 page',
+								'error 40\d', # any digit so it can be 404 or 400 whatever
+								'not found',
+								'cannot be found',
+								'could not find',
+								'can’t find',
+								'bad request',
+								'server error',
+								'temporarily unavailable',
+								'not exist',
+								'unable to open',
+								'check your spelling',
+								'an error has occurred',
+								);
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckResp =~ /$errorCheck/i){
 			print "+ Item \"$checkURL\" Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
 		}
 	}
 	
+	unless(defined $auth){ # that would be ugly :(
+		my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
+		foreach my $loginCheck (@PosibleLoginPageStrings){
+			if($CheckResp =~ /(<|)title(>|:).*?$loginCheck/i){
+				print "+ Item \"$checkURL\" Contained text: \"$loginCheck\" in the title MAYBE a Login page\n";
+			}
+		}
+	}
+	
+	#determine content-type
+	my $indexContentType;
+	my $IndexPage = $resAnalIndex->as_string();
+	my @indexheadersChop = split("\n\n", $IndexPage);
+	my @indexHeaders = split("\n", $indexheadersChop[0]); # tehe i know...
+	
+	foreach my $indexHeader (@indexHeaders){
+		if($indexHeader =~ /content-type:/i){
+			$indexContentType = $indexHeader;
+		}
+	}
 	
 	# check page size
 	my $IndexLength = length($resAnalIndex->as_string()); # get byte length of page
-	if(length($IndexLength) > 100) { chop $IndexLength;chop $IndexLength; } # make byte length aproximate
+	if(length($IndexLength) > 999) { chop $IndexLength;chop $IndexLength; } # make byte length aproximate
 	
 	my $respLength = length($CheckResp);
-	if(length($respLength) > 100) { chop $respLength;chop $respLength; }
+	if(length($respLength) > 999) { chop $respLength;chop $respLength; }
 	
-	if($IndexLength eq $respLength){
-		print "+ Item \"$checkURL\" is about the same length as / This is MAYBE a redirect\n";
-	}
-	
-	if(length($CheckResp) < 100){
-		print "+ Item \"$checkURL\" is very small. this MAYBE a False Positive!";
+	if($IndexLength = $respLength and $CheckResp =~ /$indexContentType/i){ # the content-type makes for higher confindence
+		print "+ Item \"$checkURL\" is about the same length as root page / This is MAYBE a redirect\n";
 	}
 	
 	
@@ -291,13 +314,6 @@ sub genErrorString{
 
 sub proxy{ # simple!!! i loves it
 	$ua->proxy('http',"http://$ProxyServer");
-	
-	if(defined $Ps){
-		my $warnPortscan = &PromtUser("! WARNING: Proxy Settings do not work when using the -Ps do you want to exit? (y/N) ");
-		if($warnPortscan =~ /n/i){
-			exit();
-		}
-	}
 }
 
 sub dataBaseScan{ # use a database for scanning.
@@ -357,7 +373,18 @@ sub matchScan{
 sub Standard{ #some standard stuff
 		
 		# banner grabing
-		my @checkHeaders = ('x-powered-by:','server:','x-meta-generator:','x-meta-framework:','x-meta-originator:','x-aspnet-version:','www-authenticate:','x-xss.*:', 'refresh:', 'location:',);
+		my @checkHeaders = (
+							'x-powered-by:',
+							'server:',
+							'x-meta-generator:',
+							'x-meta-framework:',
+							'x-meta-originator:',
+							'x-aspnet-version:',
+							'www-authenticate:',
+							'x-xss.*:',
+							'refresh:',
+							'location:',
+							);
 
 		my $resP = $ua->get("http://$Host/");
 		my $headers = $resP->as_string();
@@ -368,7 +395,7 @@ sub Standard{ #some standard stuff
 		foreach my $HString (@headers){
 			foreach my $checkSingleHeader (@checkHeaders){
 				if($HString =~ /$checkSingleHeader/i){
-					print "+ Informational Header: \"$HString\"\n";
+					print "+ Server Info in Header: \"$HString\"\n";
 				}
 			}
 		}
@@ -383,7 +410,9 @@ sub Standard{ #some standard stuff
 
 			if($Opt =~ /y/i){
 				print "+ robots.txt Contents: \n";
-				print $roboTXT->decoded_content . "\n";
+				my $roboConent = $roboTXT->decoded_content . "\n";
+				while ($roboConent =~ /\n\n/) {	$roboConent =~ s/\n\n//g;	} # cleaner. some robots have way to much white space
+				print $roboConent . "\n";
 			}
 		}
 		
@@ -391,7 +420,27 @@ sub Standard{ #some standard stuff
 		
 		#lilith 6.0A rework of sub indexable with a cupple additions.
 		
-		my @CommonDIRs = ('/images','/imgs','/img','/icons','/home','/pictures','/main','/css','/style','/styles','/docs','/pics','/_','/thumbnails','/thumbs','/scripts','/files');
+		my @CommonDIRs = (
+							'/images',
+							'/imgs',
+							'/img',
+							'/icons',
+							'/home',
+							'/pictures',
+							'/main',
+							'/css',
+							'/style',
+							'/styles',
+							'/docs',
+							'/pics',
+							'/_',
+							'/thumbnails',
+							'/thumbs',
+							'/scripts',
+							'/files',
+							'/js',
+							'/site',
+							);
 		&checkOpenDirListing(@CommonDIRs);
 		
 		sub checkOpenDirListing{
@@ -449,7 +498,7 @@ sub Standard{ #some standard stuff
 		
 		
 		# Some servers just give you a 200 with every req. lets see
-		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi');
+		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.xml');
 		foreach my $Extention (@webExtentions){
 			my $testErrorString = &genErrorString();
 			my $check200 = $ua->get("http://$Host/$testErrorString" . $Extention);
@@ -475,42 +524,10 @@ sub Standard{ #some standard stuff
 
 
 
-
-sub PortScan{
-		# props TheGrandFather perlmonks.org for threading
-		# pings a plenty
-		
-
-			my @threads = map {
-				threads->new(sub {doPing($Host, $_ * 20)})
-			} 0 .. 4;
-
-			for my $thread (@threads) {
-				$thread->join();
-			}
-
-			
-			
-		sub doPing {
-			my ($pingHost, $portBase) = @_;
-
-			for my $port ($portBase .. $portBase + 19) {
-				my $ping = Net::Ping->new("tcp");
-				$ping->port_number($port);
-
-				print "+ OPEN tcp port $port\n" if $ping->ping($pingHost);
-			}
-		}
-
-
-}
-
-
-
-
-
 # I don't know if this method has be used in other tools or has even been discovered before but I think it should allways be fixed 
 sub ErrorBegging{
+
+		print "*** runnning  Error begging scanner ***\n";
 
 		my $getErrorString = &genErrorString();
 		my $_404responseGet = $ua->get("http://$Host/$getErrorString");
@@ -566,6 +583,9 @@ sub ErrorBegging{
 
 
 sub auth{ # this DB is pretty good but not complete
+
+	print "*** running auth aka login page finder ***\n";
+	
 	open(authDB, "+< DB/login.db");
 	my @parseAUTHdb = <authDB>;
 	
@@ -586,6 +606,9 @@ sub auth{ # this DB is pretty good but not complete
 
 
 sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
+
+	print "*** running cms plugin detection scanner ***\n";
+	
 	print "+ CMS Plugins takes awhile....\n";
 	my @cmsPluginDBlist;
 	
@@ -625,6 +648,8 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
+	print "*** running Interesting files and dirs scanner ***\n";
+
 	print "+ interesting Files And Dirs takes awhile....\n";
 	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
 	
@@ -648,6 +673,9 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 
 sub webServices{ # as of v 1.2.7 it's acually worth the time typing "-Ws" to use it! HORAYYY
+
+	print "*** running Web Service scanner ***\n";
+	
 	open(webServicesDB, "+< DB/web-services.db");
 	my @parsewebServicesdb = <webServicesDB>;
 	
@@ -727,7 +755,27 @@ sub cms{
 
 
 sub interesting{ # look for DBs, dirs, login pages, and emails and such
-	my @interestingStings = ('https:\/\/','/cgi-bin','/wp-content/plugins/','password','passwd','admin','database','payment','bank','account','twitter.com','facebook.com','login','@.*?(com|org|net|tv|uk|au|edu|mil|gov)','<!--#');
+
+	print "*** running Interesting text scanner ***\n";
+	
+
+	my @interestingStings = (
+							'https:\/\/',
+							'\/cgi-bin',
+							'\/wp-content\/plugins\/',
+							'password',
+							'passwd',
+							'admin',
+							'database',
+							'payment',
+							'bank',
+							'account',
+							'twitter.com',
+							'facebook.com',
+							'login',
+							'@.*?(com|org|net|tv|uk|au|edu|mil|gov)', #emails
+							'<!--#', #SSI
+							);
 	my $mineIndex = $ua->get("http://$Host/");
 	
 	foreach my $checkInterestingSting (@interestingStings){
