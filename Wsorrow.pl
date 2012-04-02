@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.2.9
+#VERSION 1.3.0
 
 use LWP::UserAgent;
 use LWP::ConnCache;
@@ -30,11 +30,10 @@ use strict;
 use warnings;
 
 
-		print "\n+ Web Sorrow 1.2.9 Version detection, misconfig, and enumeration tool\n";
+		print "\n+ Web Sorrow 1.3.0 Version detection, misconfig, and enumeration tool\n";
 
 
 		my $i;
-		my $port = 0;
 		my $Opt;
 		my $Host = "none";
 
@@ -104,9 +103,7 @@ use warnings;
 			&cmsPlugins();
 		}
 
-		if(defined $interesting){
-			&interesting();
-		}
+		
 
 		if(defined $Ws){
 			&webServices();
@@ -125,7 +122,6 @@ use warnings;
 			&Standard();
 			&ErrorBegging();
 			&auth();
-			&interesting();
 			&webServices();
 			&FilesAndDirsGoodies();
 			&cmsPlugins();
@@ -160,7 +156,7 @@ usage:
 	-Eb -- Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
 	-auth -- Dictionary attack to find login pages (not passwords)
 	-cmsPlugins [dp | jm | wp | all] -- check for cms plugins. dp = drupal, jm = joomla, wp = wordpress (db's a bit outdated 2010)
-	-I -- Find interesting strings in html (very verbose)
+	-I -- Find interesting strings in pages (very verbose)
 	-Fd -- look for common interesting files and dirs
 	-Ws -- look for Web Services on host. such as hosting porvider, blogging service, favicon fingerprinting, and cms version info
 	-e -- everything. run all scans
@@ -174,9 +170,11 @@ Example:
 }
 
 sub checkHostAvailibilty{
-	my $CheckHost = $ua->get("http://$Host/"); # this is used for responceAnal too
-	if(length($CheckHost->content) == 0 or $CheckHost->is_error){
-		print "Host: $Host maybe offline is unavailble!\n";
+	my $CheckHost1 = $ua->get("http://$Host/");
+	my $CheckHost2 = $ua->get("http://$Host");
+	
+	if($CheckHost2->is_error and $CheckHost1->is_error){
+		print "Host: $Host maybe offline or unavailble!\n";
 		&PromtUser('Do you wish to continue anyway (y/n) ? ');
 		if($Opt =~ /n/i){
 			print "Exiting. Good Bye!\n";
@@ -202,6 +200,8 @@ sub analyzeResponse{ # heres were all the smart is...
 	}
 	
 	#False Positive checking
+	my @ErrorStringsFound;
+	
 	my @PosibleErrorStrings = (
 								'404 error',
 								'404 page',
@@ -220,15 +220,22 @@ sub analyzeResponse{ # heres were all the smart is...
 								);
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckResp =~ /$errorCheck/i){
-			print "+ Item \"$checkURL\" Contained text: \"$errorCheck\" MAYBE a False Positive!\n";
+			push(@ErrorStringsFound, "\"$errorCheck\" ");
+			
 		}
 	}
+	if(defined $ErrorStringsFound[0]){ # if the page contains multi error just put em into the same string
+		print "+ Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
+	}
 	
-	unless(defined $auth){ # that would be ugly :(
+	while(defined $ErrorStringsFound[0]){  pop @ErrorStringsFound;  } # saves the above if for the next go around
+	
+	
+	unless(defined $auth){ # that would make a SAD panda :(
 		my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
 		foreach my $loginCheck (@PosibleLoginPageStrings){
-			if($CheckResp =~ /(<|)title(>|:).*?$loginCheck/i){
-				print "+ Item \"$checkURL\" Contained text: \"$loginCheck\" in the title MAYBE a Login page\n";
+			if($CheckResp =~ /<title>.*?$loginCheck/i){
+				print "+ Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
 			}
 		}
 	}
@@ -241,7 +248,7 @@ sub analyzeResponse{ # heres were all the smart is...
 	
 	foreach my $indexHeader (@indexHeaders){
 		if($indexHeader =~ /content-type:/i){
-			$indexContentType = $indexHeader;
+			$indexContentType = $indexHeader;;
 		}
 	}
 	
@@ -250,12 +257,12 @@ sub analyzeResponse{ # heres were all the smart is...
 	if(length($IndexLength) > 999) { chop $IndexLength;chop $IndexLength; } # make byte length aproximate
 	
 	my $respLength = length($CheckResp);
-	if(length($respLength) > 999) { chop $respLength;chop $respLength; }
+	if(length($respLength) > 999) { chop $respLength;chop $respLength; } else { goto skipLeng; }
 	
 	if($IndexLength = $respLength and $CheckResp =~ /$indexContentType/i){ # the content-type makes for higher confindence
 		print "+ Item \"$checkURL\" is about the same length as root page / This is MAYBE a redirect\n";
 	}
-	
+	skipLeng:
 	
 	# check headers
 	my @analheadersChop = split("\n\n", $CheckResp);
@@ -265,12 +272,12 @@ sub analyzeResponse{ # heres were all the smart is...
 	
 		#the page is empty?
 		if($analHString =~ /Content-Length: (0|1)$/i){
-			print "+ Item \"$checkURL\" contained header: \"$analHString\" MAYBE a False Positive or is empty!\n";
+			print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";
 		}
 		
 		#auth page checking
 		if($analHString =~ /www-authenticate:/i){
-			print "+ Item \"$checkURL\" contained header: \"$analHString\" Hmmmm\n";
+			print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";
 		}
 		
 		#a hash?
@@ -297,9 +304,9 @@ sub analyzeResponse{ # heres were all the smart is...
 		
 	}
 	
-
-
-
+	if(defined $interesting){
+			&interesting($CheckResp,$checkURL,);
+	}
 }
 
 sub genErrorString{
@@ -333,6 +340,7 @@ sub dataBaseScan{ # use a database for scanning.
 			print "+ $scanMSG: \"$JustDir\"  -  $MSG\n";
 			&analyzeResponse($checkMsgDir->as_string() ,$JustDir);
 		}
+		$checkMsgDir = undef;
 }
 
 sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
@@ -346,6 +354,7 @@ sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
 			print "+ $scanMSGNonSynt: \"/$DataFromDBNonSynt\"\n";
 			&analyzeResponse($checkDir->as_string() ,$DataFromDBNonSynt);
 		}
+		$checkDir = undef;
 }
 
 sub matchScan{
@@ -372,19 +381,15 @@ sub matchScan{
 
 sub Standard{ #some standard stuff
 		
-		# banner grabing
 		my @checkHeaders = (
-							'x-powered-by:',
 							'server:',
+							'x-powered-by:',
 							'x-meta-generator:',
 							'x-meta-framework:',
 							'x-meta-originator:',
 							'x-aspnet-version:',
-							'www-authenticate:',
-							'x-xss.*:',
-							'refresh:',
-							'location:',
 							);
+	
 
 		my $resP = $ua->get("http://$Host/");
 		my $headers = $resP->as_string();
@@ -400,7 +405,6 @@ sub Standard{ #some standard stuff
 			}
 		}
 		
-		
 		#robots.txt
 		my $roboTXT = $ua->get("http://$Host/robots.txt");
 		unless($roboTXT->is_error){
@@ -410,9 +414,11 @@ sub Standard{ #some standard stuff
 
 			if($Opt =~ /y/i){
 				print "+ robots.txt Contents: \n";
-				my $roboConent = $roboTXT->decoded_content . "\n";
-				while ($roboConent =~ /\n\n/) {	$roboConent =~ s/\n\n//g;	} # cleaner. some robots have way to much white space
-				print $roboConent . "\n";
+				my $roboConent = $roboTXT->decoded_content;
+				while ($roboConent =~ /\n\n/) {	$roboConent =~ s/\n\n/\n/g;	} # cleaner. some robots have way to much white space
+				while ($roboConent =~ /\t/) {	$roboConent =~ s/\t//g;	}
+				
+				print $roboConent . "\n\n";
 			}
 		}
 		
@@ -518,8 +524,18 @@ sub Standard{ #some standard stuff
 		unless($mobilePage->content() eq $regularPage->content()){
 			print "+ index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
 		}
+		$mobilePage = undef; $regularPage = undef;
+		
+		# is ssl there?
+		$ua->ssl_opts(verify_hostname => 1);
+		
+		my $sslreq = $ua->get("https://$Host/");
+		unless(length($sslreq->content) == 0 or $sslreq->is_error){
+			print "+ $Host is SSL enabled\n";
+		}
+		$sslreq = undef;
+		
 }
-
 
 
 
@@ -527,7 +543,7 @@ sub Standard{ #some standard stuff
 # I don't know if this method has be used in other tools or has even been discovered before but I think it should allways be fixed 
 sub ErrorBegging{
 
-		print "*** runnning  Error begging scanner ***\n";
+		print "**** runnning  Error begging scanner ****\n";
 
 		my $getErrorString = &genErrorString();
 		my $_404responseGet = $ua->get("http://$Host/$getErrorString");
@@ -584,7 +600,7 @@ sub ErrorBegging{
 
 sub auth{ # this DB is pretty good but not complete
 
-	print "*** running auth aka login page finder ***\n";
+	print "**** running auth aka login page finder ****\n";
 	
 	open(authDB, "+< DB/login.db");
 	my @parseAUTHdb = <authDB>;
@@ -607,7 +623,7 @@ sub auth{ # this DB is pretty good but not complete
 
 sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
-	print "*** running cms plugin detection scanner ***\n";
+	print "**** running cms plugin detection scanner ****\n";
 	
 	print "+ CMS Plugins takes awhile....\n";
 	my @cmsPluginDBlist;
@@ -648,7 +664,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
-	print "*** running Interesting files and dirs scanner ***\n";
+	print "**** running Interesting files and dirs scanner ****\n";
 
 	print "+ interesting Files And Dirs takes awhile....\n";
 	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
@@ -674,7 +690,7 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 sub webServices{ # as of v 1.2.7 it's acually worth the time typing "-Ws" to use it! HORAYYY
 
-	print "*** running Web Service scanner ***\n";
+	print "**** running Web Service scanner ****\n";
 	
 	open(webServicesDB, "+< DB/web-services.db");
 	my @parsewebServicesdb = <webServicesDB>;
@@ -755,31 +771,19 @@ sub cms{
 
 
 sub interesting{ # look for DBs, dirs, login pages, and emails and such
-
-	print "*** running Interesting text scanner ***\n";
+	my $mineShaft = shift;
+	my $mineUrl = shift;
+	my @InterestingStringsFound;
 	
-
-	my @interestingStings = (
-							'https:\/\/',
+	my @interestingStings = ( # much thiner cuz was to general and verbose
 							'\/cgi-bin',
 							'\/wp-content\/plugins\/',
-							'password',
-							'passwd',
-							'admin',
-							'database',
-							'payment',
-							'bank',
-							'account',
-							'twitter.com',
-							'facebook.com',
-							'login',
-							'@.*?(com|org|net|tv|uk|au|edu|mil|gov)', #emails
+							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov)', #emails
 							'<!--#', #SSI
 							);
-	my $mineIndex = $ua->get("http://$Host/");
 	
 	foreach my $checkInterestingSting (@interestingStings){
-		my @IndexData = split(/</,$mineIndex->decoded_content);
+		my @IndexData = split(/</,$mineShaft);
 		
 		foreach my $splitIndex (@IndexData){
 			if($splitIndex =~ /$checkInterestingSting/i){
@@ -789,10 +793,19 @@ sub interesting{ # look for DBs, dirs, login pages, and emails and such
 					$splitIndex =~ s/  / /g;
 				}
 				# the split chops off < so i just stick it in there to make it look pretty
-				print "+ Interesting text found: <$splitIndex\n";
+				push(@InterestingStringsFound, "<$splitIndex\n\t");
 			}
 		
 		}
 
+
+		
+		if(defined $InterestingStringsFound[0]){ # if the page contains multi error just put em into the same string
+			print "+ Interesting text found in \"$mineUrl\": \n\t@InterestingStringsFound\n";
+		}
+		
+		while(defined $InterestingStringsFound[0]){  pop @InterestingStringsFound;  } # saves the above if for the next go around
+	
 	}
+	$mineShaft = undef;
 }
