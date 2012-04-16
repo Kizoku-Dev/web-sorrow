@@ -17,10 +17,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.0
+#VERSION 1.3.1
 
 use LWP::UserAgent;
 use LWP::ConnCache;
+use HTTP::Request;
 use HTTP::Response;
 use Digest::MD5;
 use Getopt::Long;
@@ -30,7 +31,7 @@ use strict;
 use warnings;
 
 
-		print "\n+ Web Sorrow 1.3.0 Version detection, misconfig, and enumeration tool\n";
+		print "\n+ Web Sorrow 1.3.1 Version detection, misconfig, and enumeration tool\n";
 
 
 		my $i;
@@ -44,15 +45,16 @@ use warnings;
 
 
 		GetOptions("host=s" => \$Host, # host ip or domain
-			"Eb" => \my $Eb, # error begging
 			"S" => \my $S, # Standard checks
 			"auth" => \my $auth, # MEH!!!!!! self explanitory
-			"cmsPlugins=s" => \my $cmsPlugins, # cms plugins
-			"I" => \my $interesting, # find interesting text in /index.whatever
+			"Cp=s" => \my $cmsPlugins, # cms plugins
+			"I" => \my $interesting, # find interesting text
 			"Ws" => \my $Ws, # Web services
 			"e" => \my $e, # EVERYTHINGGGGGGGG
 			"proxy=s" => \my $ProxyServer, #use a proxy
 			"Fd" => \my $Fd, # files and dirs
+			"Fp" => \my $Fp, # fingerprint web server
+			"ninja" => \my $nin,
 		);
 
 		# usage
@@ -72,8 +74,7 @@ use warnings;
 
 
 		if($Host =~ /http(s|):\/\//i){ #check host input
-			print "- No \"http:/\/\" please! just domain name or IP ADDR\n";
-			exit();
+			$Host =~ s/http(s|):\/\///gi;
 		}
 
 
@@ -84,47 +85,27 @@ use warnings;
 			&proxy(); # always make sure to put this first, lest we send un-proxied packets
 		}
 
-		&checkHostAvailibilty();
+		&checkHostAvailibilty() unless defined $nin; # skip if --ninja for more stealth
 		my $resAnalIndex = $ua->get("http://$Host/");
 		
-		if(defined $S){
-			&Standard();
-		}
-
-		if(defined $Eb){
-			&ErrorBegging();
-		}
-
-		if(defined $auth){
-			&auth();
-		}
-
-		if(defined $cmsPlugins){
-			&cmsPlugins();
-		}
-
+		if(defined $S){ &Standard(); }
+		if(defined $nin){ &Ninja(); }
+		if(defined $auth){ &auth(); }
+		if(defined $cmsPlugins){ &cmsPlugins(); }
+		if(defined $Fp){ &FingerPrint(); }
+		if(defined $Ws){ &webServices(); }
+		if(defined $Fd){ &FilesAndDirsGoodies(); }
+		if(defined $e){ &runAll(); }
 		
-
-		if(defined $Ws){
-			&webServices();
-		}
-
-		if(defined $Fd){
-			&FilesAndDirsGoodies();
-		}
-
-		if(defined $e){
-			&runAll();
-		}
 		
 		
 		sub runAll{
 			&Standard();
-			&ErrorBegging();
+			&FingerPrint();
 			&auth();
 			&webServices();
-			&FilesAndDirsGoodies();
 			&cmsPlugins();
+			&FilesAndDirsGoodies();
 		}
 
 
@@ -149,22 +130,37 @@ use warnings;
 sub usage{
 
 print q{
-usage:
-	-host [host] -- Defines host to scan.
-	-proxy [ip:port] -- use a proxy server
-	-S -- Standard misconfig and other checks
-	-Eb -- Error Begging. Sometimes a 404 page contains server info such as daemon or even the OS
-	-auth -- Dictionary attack to find login pages (not passwords)
-	-cmsPlugins [dp | jm | wp | all] -- check for cms plugins. dp = drupal, jm = joomla, wp = wordpress (db's a bit outdated 2010)
-	-I -- Find interesting strings in pages (very verbose)
-	-Fd -- look for common interesting files and dirs
-	-Ws -- look for Web Services on host. such as hosting porvider, blogging service, favicon fingerprinting, and cms version info
-	-e -- everything. run all scans
+Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)]
 
-Example:
-	perl Wsorrow.pl -host scanme.nmap.org -S
-	perl Wsorrow.pl -host scanme.nmap.org -Eb -cmsPlugins dp,jm
-	perl Wsorrow.pl -host 66.11.227.35 -S -Ws -I -proxy 129.255.1.17:3128
+HOST OPTIONS:
+    -host [host]     -- Defines host to use.
+    -proxy [ip:port] -- use a proxy server
+	
+	
+SCANS:
+    -S    --  Standard misconfig and other checks
+    -auth --  Dictionary attack to find login pages (not passwords)
+    -Cp [dp | jm | wp | all] -- scan for cms plugins.
+            dp = drupal
+            jm = joomla
+            wp = wordpress 
+    -Fd   --  look for common interesting files and dirs
+    -Fp   --  Fingerprint http server based on behavior
+    -Ws   --  scan for Web Services on host such as: hosting porvider, 
+              blogging service, favicon fingerprinting, and cms version info
+    -e    --  everything. run all scans
+	
+	
+OTHER:
+    -I      --  Find interesting strings in responses
+    -ninja  --  A light weight and undetectable scan that uses bits and peices 
+                from other scans (it is not recomended to use with any other scans 
+                if you want to be stealthy)
+
+EXAMPLES:
+    perl Wsorrow.pl -host scanme.nmap.org -S
+    perl Wsorrow.pl -host scanme.nmap.org -Cp dp,jm
+    perl Wsorrow.pl -host 66.11.227.35 -proxy 129.255.1.17:3128 -S -Ws -I 
 };
 
 }
@@ -177,7 +173,7 @@ sub checkHostAvailibilty{
 		print "Host: $Host maybe offline or unavailble!\n";
 		&PromtUser('Do you wish to continue anyway (y/n) ? ');
 		if($Opt =~ /n/i){
-			print "Exiting. Good Bye!\n";
+			print "You should try hdt.pl for more conclusive host discovery\nExiting. Good Bye!\n";
 			exit();
 		}
 	}
@@ -221,7 +217,6 @@ sub analyzeResponse{ # heres were all the smart is...
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckResp =~ /$errorCheck/i){
 			push(@ErrorStringsFound, "\"$errorCheck\" ");
-			
 		}
 	}
 	if(defined $ErrorStringsFound[0]){ # if the page contains multi error just put em into the same string
@@ -248,7 +243,7 @@ sub analyzeResponse{ # heres were all the smart is...
 	
 	foreach my $indexHeader (@indexHeaders){
 		if($indexHeader =~ /content-type:/i){
-			$indexContentType = $indexHeader;;
+			$indexContentType = $indexHeader;
 		}
 	}
 	
@@ -257,12 +252,11 @@ sub analyzeResponse{ # heres were all the smart is...
 	if(length($IndexLength) > 999) { chop $IndexLength;chop $IndexLength; } # make byte length aproximate
 	
 	my $respLength = length($CheckResp);
-	if(length($respLength) > 999) { chop $respLength;chop $respLength; } else { goto skipLeng; }
+	if(length($respLength) > 999) { chop $respLength;chop $respLength; }
 	
 	if($IndexLength = $respLength and $CheckResp =~ /$indexContentType/i){ # the content-type makes for higher confindence
-		print "+ Item \"$checkURL\" is about the same length as root page / This is MAYBE a redirect\n";
+		print "+ Item \"$checkURL\" is about the same length as root page / This is MAYBE a redirect\n" unless $checkURL eq "/";
 	}
-	skipLeng:
 	
 	# check headers
 	my @analheadersChop = split("\n\n", $CheckResp);
@@ -304,8 +298,9 @@ sub analyzeResponse{ # heres were all the smart is...
 		
 	}
 	
-	if(defined $interesting){
-			&interesting($CheckResp,$checkURL,);
+	
+	if(defined $interesting or defined $nin or defined $e){
+		&interesting($CheckResp,$checkURL,$indexContentType);
 	}
 }
 
@@ -380,48 +375,54 @@ sub matchScan{
 
 
 sub Standard{ #some standard stuff
+		&bannerGrab();
+		sub bannerGrab{
+			my @checkHeaders = (
+								'server:',
+								'x-powered-by:',
+								'x-meta-generator:',
+								'x-meta-framework:',
+								'x-meta-originator:',
+								'x-aspnet-version:',
+								);
 		
-		my @checkHeaders = (
-							'server:',
-							'x-powered-by:',
-							'x-meta-generator:',
-							'x-meta-framework:',
-							'x-meta-originator:',
-							'x-aspnet-version:',
-							);
-	
 
-		my $resP = $ua->get("http://$Host/");
-		my $headers = $resP->as_string();
-		
-		my @headersChop = split("\n\n", $headers);
-		my @headers = split("\n", $headersChop[0]);
-		
-		foreach my $HString (@headers){
-			foreach my $checkSingleHeader (@checkHeaders){
-				if($HString =~ /$checkSingleHeader/i){
-					print "+ Server Info in Header: \"$HString\"\n";
+			my $resP = $ua->get("http://$Host/");
+			my $headers = $resP->as_string();
+			
+			&analyzeResponse($resP->as_string() ,"/");
+			
+			my @headersChop = split("\n\n", $headers);
+			my @headers = split("\n", $headersChop[0]);
+			
+			foreach my $HString (@headers){
+				foreach my $checkSingleHeader (@checkHeaders){
+					if($HString =~ /$checkSingleHeader/i){
+						print "+ Server Info in Header: \"$HString\"\n";
+					}
 				}
 			}
 		}
 		
 		#robots.txt
-		my $roboTXT = $ua->get("http://$Host/robots.txt");
-		unless($roboTXT->is_error){
-			&analyzeResponse($roboTXT->as_string() ,"/robots.txt");
-			
-			my $Opt = &PromtUser("+ robots.txt found! This could be interesting!\n+ would you like me to display it? (y/n) ? ");
-
-			if($Opt =~ /y/i){
-				print "+ robots.txt Contents: \n";
-				my $roboConent = $roboTXT->decoded_content;
-				while ($roboConent =~ /\n\n/) {	$roboConent =~ s/\n\n/\n/g;	} # cleaner. some robots have way to much white space
-				while ($roboConent =~ /\t/) {	$roboConent =~ s/\t//g;	}
+		&Robots();
+		sub Robots{
+			my $roboTXT = $ua->get("http://$Host/robots.txt");
+			unless($roboTXT->is_error){
+				&analyzeResponse($roboTXT->as_string() ,"/robots.txt");
 				
-				print $roboConent . "\n\n";
+				my $Opt = &PromtUser("+ robots.txt found! This could be interesting!\n+ would you like me to display it? (y/n) ? ");
+
+				if($Opt =~ /y/i){
+					print "+ robots.txt Contents: \n";
+					my $roboContent = $roboTXT->decoded_content;
+					while ($roboContent =~ /\n\n/) {	$roboContent =~ s/\n\n/\n/g;	} # cleaner. some robots have way to much white space
+					while ($roboContent =~ /\t/) {	$roboContent =~ s/\t//g;	}
+					
+					print $roboContent . "\n";
+				}
 			}
 		}
-		
 		
 		
 		#lilith 6.0A rework of sub indexable with a cupple additions.
@@ -458,19 +459,19 @@ sub Standard{ #some standard stuff
 				# Apache
 				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/i){
 					# extra checking (<a.*>last modified</a>, ...)
-					print "+ Directory indexing found in \"$dir\" - AND it looks like an Apache server!\n";
+					print "+ Directory indexing found in \"$dir\"";
 					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# Tomcat
 				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-					print "+ Directory indexing found in \"$dir\" - AND it looks like an Apache Tomcat server!\n";
+					print "+ Directory indexing found in \"$dir\"\n";
 					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 
 				# iis
 				if($IndexFind->content =~ /<body><H1>$Host - $dir/i){
-					print "+ Directory indexing found in \"$dir\" - AND it looks like an IIS server!\n";
+					print "+ Directory indexing found in \"$dir\"\n";
 					&analyzeResponse($IndexFind->as_string() ,$dir);
 				}
 				
@@ -504,17 +505,23 @@ sub Standard{ #some standard stuff
 		
 		
 		# Some servers just give you a 200 with every req. lets see
+		my @badexts;
 		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.xml');
 		foreach my $Extention (@webExtentions){
 			my $testErrorString = &genErrorString();
 			my $check200 = $ua->get("http://$Host/$testErrorString" . $Extention);
 			
 			if($check200->is_success){
-				print "+ /$testErrorString" . $Extention . " responded with code: " . $check200->code . " the server might just responde with this code even when the dir, file, or Extention: $Extention doesn't exist! any results from this server may be void\n";
-				&analyzeResponse($check200->as_string() ,"$testErrorString" . $Extention);
+				push(@badexts, "\"$Extention\" ");
 			}
 		}
+		if(defined $badexts[0]){ # if the page contains multi error just put em into the same string
+			print "+ INTENTIONALLY bad requests sent with the file Extention(s) @badexts responded with odd status codes. any results from this server with those files extention(s) may be void\n";
+		}
+	
+		while(defined $badexts[0]){  pop @badexts;  } # saves the above if for the next go around
 		
+
 		#does the site have a mobile page?
 		my $MobileUA = LWP::UserAgent->new;
 		$MobileUA->agent('Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0');
@@ -540,67 +547,8 @@ sub Standard{ #some standard stuff
 
 
 
-# I don't know if this method has be used in other tools or has even been discovered before but I think it should allways be fixed 
-sub ErrorBegging{
-
-		print "**** runnning  Error begging scanner ****\n";
-
-		my $getErrorString = &genErrorString();
-		my $_404responseGet = $ua->get("http://$Host/$getErrorString");
-		&checkError($_404responseGet);
-		
-		my $postErrorString = &genErrorString();
-		my $_404responsePost = $ua->post("http://$Host/$postErrorString");
-		&checkError($_404responsePost);
-
-
-		sub checkError{
-			my $_404response = shift;
-		
-			if($_404response->is_error) {
-				my $siteHTML = $_404response->decoded_content;
-				
-				
-				### strip html tags and make pretty [very close to perfectly]
-				$siteHTML =~ s/<script.*?<\/script>//sgi;
-				$siteHTML =~ s/<style.*?<\/style>//sgi;
-				$siteHTML =~ s/<(?!--)[^'">]*"[^"]*"/</sgi;
-				$siteHTML =~ s/<(?!--)[^'">]*'[^']*'/</sgi;
-				$siteHTML =~ s/<(?!--)[^">]*>//sgi;
-				$siteHTML =~ s/<!--.*?-->//sgi;
-				$siteHTML =~ s/<.*?>//sgi;
-				$siteHTML =~ s/\n/ /sg;
-				while($siteHTML =~ "  "){
-					$siteHTML =~ s/  / /g;
-				}
-				while($siteHTML =~ "\t"){
-					$siteHTML =~ s/\t//sg;
-				}
-				
-				
-				my $siteNaked = $siteHTML;
-				if(length($siteNaked) > 1000){
-					my $Opt = &PromtUser("! the Error page was found but its a bit big\n! do you still want to see it (y/n) ? ");
-					if($Opt =~ /y/i){
-						print $siteNaked . "\n\n";
-					} else {
-						print "\n+ Found 404 page but not printing. To Big :(\n";
-					}
-				} else {
-					print "+ Error page found  -- " . $siteNaked . "\n\n";
-				}
-			}
-		}
-		
-}
-
-
-
-
-
 sub auth{ # this DB is pretty good but not complete
 
-	print "**** running auth aka login page finder ****\n";
 	
 	open(authDB, "+< DB/login.db");
 	my @parseAUTHdb = <authDB>;
@@ -622,11 +570,11 @@ sub auth{ # this DB is pretty good but not complete
 
 
 sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
-
-	print "**** running cms plugin detection scanner ****\n";
+	
 	
 	print "+ CMS Plugins takes awhile....\n";
 	my @cmsPluginDBlist;
+	if(defined $e){$cmsPlugins = "all";}
 	
 	if($cmsPlugins =~ /dp/i){
 		push(@cmsPluginDBlist, 'DB/drupal_plugins.db');
@@ -664,7 +612,6 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
-	print "**** running Interesting files and dirs scanner ****\n";
 
 	print "+ interesting Files And Dirs takes awhile....\n";
 	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
@@ -690,27 +637,28 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 sub webServices{ # as of v 1.2.7 it's acually worth the time typing "-Ws" to use it! HORAYYY
 
-	print "**** running Web Service scanner ****\n";
-	
-	open(webServicesDB, "+< DB/web-services.db");
-	my @parsewebServicesdb = <webServicesDB>;
-	
-	my $webServicesTestPage = $ua->get("http://$Host/");
-	
-	my @webServicesStringMsg;
-	foreach my $lineIDK (@parsewebServicesdb){
-		push(@webServicesStringMsg, $lineIDK);
-	}
-	
-
+	sub WScontent{
+		open(webServicesDB, "+< DB/web-services.db");
+		my @parsewebServicesdb = <webServicesDB>;
 		
-	foreach my $ServiceString (@webServicesStringMsg){
-		&matchScan($ServiceString,$webServicesTestPage->content,"Web service Found");
+		my $webServicesTestPage = $ua->get("http://$Host/");
+		
+		my @webServicesStringMsg;
+		foreach my $lineIDK (@parsewebServicesdb){
+			push(@webServicesStringMsg, $lineIDK);
+		}
+		
+
+			
+		foreach my $ServiceString (@webServicesStringMsg){
+			&matchScan($ServiceString,$webServicesTestPage->content,"Web service Found");
+		}
+
+
+		close(webServicesDB);
 	}
-
-
-	close(webServicesDB);
 	
+	&WScontent();
 	&faviconMD5(); # i'll just make a new sub
 	&cms();
 }
@@ -773,17 +721,28 @@ sub cms{
 sub interesting{ # look for DBs, dirs, login pages, and emails and such
 	my $mineShaft = shift;
 	my $mineUrl = shift;
+	my $PageContentType = shift;
+	
 	my @InterestingStringsFound;
+	my @IndexData;
 	
 	my @interestingStings = ( # much thiner cuz was to general and verbose
 							'\/cgi-bin',
 							'\/wp-content\/plugins\/',
+							'\/components\/',
+							'\/modules\/',
+							'\/templates\/',
+							'_vti_',
 							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov)', #emails
 							'<!--#', #SSI
 							);
 	
 	foreach my $checkInterestingSting (@interestingStings){
-		my @IndexData = split(/</,$mineShaft);
+		if($PageContentType =~ /text\/html/i){
+			my @IndexData = split(/</,$mineShaft);
+		} else {
+			my @IndexData = split(/\n/,$mineShaft);
+		}
 		
 		foreach my $splitIndex (@IndexData){
 			if($splitIndex =~ /$checkInterestingSting/i){
@@ -801,11 +760,75 @@ sub interesting{ # look for DBs, dirs, login pages, and emails and such
 
 		
 		if(defined $InterestingStringsFound[0]){ # if the page contains multi error just put em into the same string
-			print "+ Interesting text found in \"$mineUrl\": \n\t@InterestingStringsFound\n";
+			print "+ Interesting text found in \"$mineUrl\" @InterestingStringsFound\n";
 		}
 		
 		while(defined $InterestingStringsFound[0]){  pop @InterestingStringsFound;  } # saves the above if for the next go around
 	
 	}
 	$mineShaft = undef;
+}
+
+
+
+
+sub FingerPrint{
+	print "+ NOTE: -Fp is a bit unrefined and will be improved over time\n";
+	
+	my @Weight; # i'll use this more in the future
+		
+	my $HTTPdelReq = HTTP::Request->new(DELETE => "http://$Host");
+	my $DELETEres = $ua->request($HTTPdelReq);
+	my $DELcontent = $DELETEres->as_string();
+	
+	my @DELcontentSplit = split(/\n/, $DELcontent);
+	my $HTTPresField = $DELcontentSplit[0];
+	
+	my @DELresp = ('HTTP\/1\.1 405 Method Not Allowed;Apache', 'HTTP\/1\.1 302 Found;Apache','HTTP\/1\.1 403 Forbidden;Microsoft-IIS','HTTP\/1\.1 405 Not Allowed;nginx');
+	foreach my $PrintHTTPfield (@DELresp){
+		my @DELhttpMSGSplit = split(/;/, $PrintHTTPfield);
+		my $MatchHTTPError = $DELhttpMSGSplit[0];
+		my $DELdaemon = $DELhttpMSGSplit[1];
+		
+		if ($HTTPresField =~ /$MatchHTTPError/i){
+			print "+ HTTP Fingerprint - DELETE Method concludes: $DELdaemon\n";
+		}
+		
+	}
+
+
+	# -Eb code repurposed
+	my $getErrorString = &genErrorString();
+	my $_404response = $ua->get("http://$Host/$getErrorString");
+
+	if($_404response->is_error) {
+		my $siteHTML = $_404response->decoded_content;
+		
+		$siteHTML =~ s/<.*?>//g;
+			
+		if($siteHTML =~ /apache\//i){
+			print "+ HTTP Fingerprint - 404 Method concludes: Apache\n";
+		}
+	
+		if($siteHTML =~ /Microsoft Product Support Services/i){
+			print "+ HTTP Fingerprint - 404 Method concludes: Microsoft-IIS\n";
+		}
+		
+		if($siteHTML =~ /nginx\//){
+			print "+ HTTP Fingerprint - 404 Method concludes: nginx\n";
+		}
+	}
+	
+	# I'm having trouble with this code.
+	#my $Dconf = 0;my $daemon;my $Resdump = $resAnalIndex->as_string();my @orderHeadersChop = split("\n\n", $Resdump);my @orderHeaders = split("\n", $orderHeadersChop[0]);open(FPDB,'+< DB/http_finger-print.db');my @FPsDataBaseSplit = <FPDB>;foreach my $TestFP (@FPsDataBaseSplit){if($TestFP eq '{'){next;} else {unless($TestFP eq '}'){if($TestFP =~ /Daemon-/){$TestFP =~ s/Daemon-//; #leave just name remaining $daemon = $TestFP;chomp $daemon;next;}foreach my $examineHeader (@orderHeaders){if($examineHeader =~ /$TestFP/i){$Dconf++;} else {}}push(@Weight,"$daemon;$Dconf");}}}close(FPDB);
+}
+
+sub Ninja{
+	&bannerGrab();
+	sleep(int((rand(3)+2))); # pause for a random amount of time
+	&faviconMD5();
+	sleep(int((rand(3)+2)));
+	&Robots();
+	sleep(int((rand(3)+2)));
+	&WScontent();
 }
