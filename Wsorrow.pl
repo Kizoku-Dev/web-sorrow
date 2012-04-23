@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.1
+#VERSION 1.3.2
 
 use LWP::UserAgent;
 use LWP::ConnCache;
@@ -31,7 +31,7 @@ use strict;
 use warnings;
 
 
-		print "\n+ Web Sorrow 1.3.1 Version detection, misconfig, and enumeration tool\n";
+		print "\n+ Web Sorrow 1.3.2 Version detection, misconfig, and enumeration tool\n";
 
 
 		my $i;
@@ -55,6 +55,8 @@ use warnings;
 			"Fd" => \my $Fd, # files and dirs
 			"Fp" => \my $Fp, # fingerprint web server
 			"ninja" => \my $nin,
+			"Db" => \my $DirB, # use dirbuster database
+			"ua=s" => \my $UserA,
 		);
 
 		# usage
@@ -63,7 +65,11 @@ use warnings;
 			exit();
 		}
 
-
+		if($Host =~ /http(s|):\/\//i){ #check host input
+			$Host =~ s/http(s|):\/\///gi;
+			$Host =~ s/\/.*//g;
+		}
+		
 		print "+ Host: $Host\n";
 
 		if(defined $ProxyServer){
@@ -73,13 +79,13 @@ use warnings;
 		print "-" x 70 . "\n";
 
 
-		if($Host =~ /http(s|):\/\//i){ #check host input
-			$Host =~ s/http(s|):\/\///gi;
-		}
+
 
 
 		#triger scans
-
+		if(defined $UserA){
+			$ua->agent($UserA);
+		}
 
 		if(defined $ProxyServer){
 			&proxy(); # always make sure to put this first, lest we send un-proxied packets
@@ -87,7 +93,7 @@ use warnings;
 
 		&checkHostAvailibilty() unless defined $nin; # skip if --ninja for more stealth
 		my $resAnalIndex = $ua->get("http://$Host/");
-		
+
 		if(defined $S){ &Standard(); }
 		if(defined $nin){ &Ninja(); }
 		if(defined $auth){ &auth(); }
@@ -96,6 +102,7 @@ use warnings;
 		if(defined $Ws){ &webServices(); }
 		if(defined $Fd){ &FilesAndDirsGoodies(); }
 		if(defined $e){ &runAll(); }
+		if(defined $DirB){ &Dirbuster(); }
 		
 		
 		
@@ -106,13 +113,14 @@ use warnings;
 			&webServices();
 			&cmsPlugins();
 			&FilesAndDirsGoodies();
+			&Dirbuster();
 		}
 
 
 
 
 		print "-" x 70 . "\n";
-		print "+ done :'(  -  Finshed on " . localtime;
+		print "+ done :'(  -  Finsh Time: " . localtime;
 
 
 
@@ -138,28 +146,31 @@ HOST OPTIONS:
 	
 	
 SCANS:
-    -S    --  Standard misconfig and other checks
+    -S    --  Standard misconfig scans including: agresive directory indexing, banner grabbing,
+              language detection, robots.txt, HTTP 200 response testing, etc.
     -auth --  Dictionary attack to find login pages (not passwords)
     -Cp [dp | jm | wp | all] -- scan for cms plugins.
-            dp = drupal
-            jm = joomla
-            wp = wordpress 
+                dp = drupal
+                jm = joomla
+                wp = wordpress 
     -Fd   --  look for common interesting files and dirs
     -Fp   --  Fingerprint http server based on behavior
     -Ws   --  scan for Web Services on host such as: hosting porvider, 
               blogging service, favicon fingerprinting, and cms version info
+    -Db   --  BruteForce Directories with the big dirbuster Database
     -e    --  everything. run all scans
 	
 	
 OTHER:
-    -I      --  Find interesting strings in responses
+    -I      --  Passively find interesting strings in responses
     -ninja  --  A light weight and undetectable scan that uses bits and peices 
                 from other scans (it is not recomended to use with any other scans 
                 if you want to be stealthy)
+    -ua     --  useragent to use (default is firefox linux)
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
-    perl Wsorrow.pl -host scanme.nmap.org -Cp dp,jm
+    perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm
     perl Wsorrow.pl -host 66.11.227.35 -proxy 129.255.1.17:3128 -S -Ws -I 
 };
 
@@ -173,7 +184,7 @@ sub checkHostAvailibilty{
 		print "Host: $Host maybe offline or unavailble!\n";
 		&PromtUser('Do you wish to continue anyway (y/n) ? ');
 		if($Opt =~ /n/i){
-			print "You should try hdt.pl for more conclusive host discovery\nExiting. Good Bye!\n";
+			print "You should try hdt.pl for more conclusive host discovery\nExiting. Good Bye! come back anytime now ya hear\n";
 			exit();
 		}
 	}
@@ -201,11 +212,12 @@ sub analyzeResponse{ # heres were all the smart is...
 	my @PosibleErrorStrings = (
 								'404 error',
 								'404 page',
-								'error 40\d', # any digit so it can be 404 or 400 whatever
+								'error 404', # any digit so it can be 404 or 400 whatever
 								'not found',
 								'cannot be found',
 								'could not find',
 								'can’t find',
+								'cannot found', # incorrect english but i'v seen it before
 								'bad request',
 								'server error',
 								'temporarily unavailable',
@@ -229,7 +241,7 @@ sub analyzeResponse{ # heres were all the smart is...
 	unless(defined $auth){ # that would make a SAD panda :(
 		my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
 		foreach my $loginCheck (@PosibleLoginPageStrings){
-			if($CheckResp =~ /<title>.*?$loginCheck/i){
+			if($CheckResp =~ /<title>.*+$loginCheck<\/title>/i){
 				print "+ Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
 			}
 		}
@@ -247,22 +259,11 @@ sub analyzeResponse{ # heres were all the smart is...
 		}
 	}
 	
-	# check page size
-	my $IndexLength = length($resAnalIndex->as_string()); # get byte length of page
-	if(length($IndexLength) > 999) { chop $IndexLength;chop $IndexLength; } # make byte length aproximate
-	
-	my $respLength = length($CheckResp);
-	if(length($respLength) > 999) { chop $respLength;chop $respLength; }
-	
-	if($IndexLength = $respLength and $CheckResp =~ /$indexContentType/i){ # the content-type makes for higher confindence
-		print "+ Item \"$checkURL\" is about the same length as root page / This is MAYBE a redirect\n" unless $checkURL eq "/";
-	}
-	
 	# check headers
 	my @analheadersChop = split("\n\n", $CheckResp);
 	my @analHeaders = split("\n", $analheadersChop[0]); # tehe i know...
 	
-	foreach my $analHString (@analHeaders){ # method used in sub Standard is not used because of custom msgs and there's not more then 2 headers per msg so why bother
+	foreach my $analHString (@analHeaders){ # method used in sub Standard is not used here because of custom msgs and there's not more then 2 headers per msg so why bother
 	
 		#the page is empty?
 		if($analHString =~ /Content-Length: (0|1)$/i){
@@ -281,11 +282,11 @@ sub analyzeResponse{ # heres were all the smart is...
 		
 		#redircted me?
 		if($analHString =~ /refresh:/i){
-			print "+ Item \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
+			print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n" unless $analHString =~ /refresh:( |)\d?/i;
 		}
 		
 		if($analHString =~ /http\/1.1 30(1|2|7)/i){
-			print "+ Item \"$checkURL\" - looks like it redirects. header: \"$analHString\"\n";
+			print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";
 		}
 		
 		if($analHString =~ /location:/i){
@@ -302,6 +303,8 @@ sub analyzeResponse{ # heres were all the smart is...
 	if(defined $interesting or defined $nin or defined $e){
 		&interesting($CheckResp,$checkURL,$indexContentType);
 	}
+	
+	&MatchDirIndex($checkURL, $checkURL); # passivly scan for Directory Indexing
 }
 
 sub genErrorString{
@@ -384,6 +387,7 @@ sub Standard{ #some standard stuff
 								'x-meta-framework:',
 								'x-meta-originator:',
 								'x-aspnet-version:',
+								'via:',
 								);
 		
 
@@ -448,33 +452,36 @@ sub Standard{ #some standard stuff
 							'/js',
 							'/site',
 							);
-		&checkOpenDirListing(@CommonDIRs);
+		&checkOpenDirListing(@CommonDIRs); # try to argesivly invoke
 		
 		sub checkOpenDirListing{
 			my (@DIRlist) = @_;
-			foreach my $dir (@DIRlist){
+			foreach my $dir (@DIRlist){ # I took out Responce analysis on this cuz it validates if it is a true index already
 
 				my $IndexFind = $ua->get("http://$Host" . $dir);
-					
-				# Apache
-				if($IndexFind->content =~ /<H1>Index of \/.*<\/H1>/i){
-					# extra checking (<a.*>last modified</a>, ...)
-					print "+ Directory indexing found in \"$dir\"";
-					&analyzeResponse($IndexFind->as_string() ,$dir);
-				}
-
-				# Tomcat
-				if($IndexFind->content =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexFind->content =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-					print "+ Directory indexing found in \"$dir\"\n";
-					&analyzeResponse($IndexFind->as_string() ,$dir);
-				}
-
-				# iis
-				if($IndexFind->content =~ /<body><H1>$Host - $dir/i){
-					print "+ Directory indexing found in \"$dir\"\n";
-					&analyzeResponse($IndexFind->as_string() ,$dir);
-				}
+				my $IndDir = $dir; # a hack to shutup strict
+				&MatchDirIndex($IndDir, $IndexFind->content);
 				
+				sub MatchDirIndex {
+					my $dirr = shift;
+					my $IndexConFind = shift;
+					
+					# Apache
+					if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
+						# extra checking (<a.*>last modified</a>, ...)
+						print "+ Directory indexing found in \"$dirr\"\n";
+					}
+
+					# Tomcat
+					if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
+						print "+ Directory indexing found in \"$dirr\"\n";
+					}
+
+					# iis
+					if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
+						print "+ Directory indexing found in \"$dirr\"\n";
+					}
+				}
 			}
 		}
 		
@@ -497,6 +504,7 @@ sub Standard{ #some standard stuff
 				
 				unless($lineIDK =~ /lang=('|")('|")/){ # empty?
 					print "+ page Laguage found: $lineIDK\n";
+					last; # somtimes pages have like 4 or 5 so just find one
 				}
 			}
 		}
@@ -506,7 +514,7 @@ sub Standard{ #some standard stuff
 		
 		# Some servers just give you a 200 with every req. lets see
 		my @badexts;
-		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.xml');
+		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.cfm');
 		foreach my $Extention (@webExtentions){
 			my $testErrorString = &genErrorString();
 			my $check200 = $ua->get("http://$Host/$testErrorString" . $Extention);
@@ -536,12 +544,32 @@ sub Standard{ #some standard stuff
 		# is ssl there?
 		$ua->ssl_opts(verify_hostname => 1);
 		
-		my $sslreq = $ua->get("https://$Host/");
+		my $sslreq = $ua->get("https://$Host");
 		unless(length($sslreq->content) == 0 or $sslreq->is_error){
-			print "+ $Host is SSL enabled\n";
+			print "+ $Host is SSL capable\n";
 		}
 		$sslreq = undef;
+
+		# common sensitive shtuff
+		open(FilesAndDirsDBFileS, "+< DB/small-tests.db");
+		my @parseFilesAndDirsDBS = <FilesAndDirsDBFileS>;
+		foreach my $JustDirS (@parseFilesAndDirsDBS){
+			&nonSyntDatabaseScan($JustDirS,"Sensitive item found");
+		}
+		close(FilesAndDirsDBFileS);
 		
+		#Apache account name
+		
+		my @apcheUserNames = ('usr','user','admin','adminstrator','steve','twighlighsparkle');
+		
+		foreach my $usrnm (@apcheUserNames){
+			my $ApcheUseNmTest = $ua->get("http://$Host/~" . $usrnm);
+			
+			if($ApcheUseNmTest->code == 200 or $ApcheUseNmTest->code == 401){
+				print "+ This server has Apache user accounts enabled. like: ~user\n";
+				&analyzeResponse($ApcheUseNmTest->as_string() ,"/~$usrnm");
+			}
+		}
 }
 
 
@@ -668,38 +696,45 @@ sub webServices{ # as of v 1.2.7 it's acually worth the time typing "-Ws" to use
 
 sub faviconMD5{ # thanks to OWASP
 	
-	my $favicon = $ua->get("http://$Host/favicon.ico");
+	my @favArry = (
+					'favicon.ico',
+					'Favicon.ico',
+					'images/favicon.ico',
+	);
 	
-	if($favicon->is_success){
-		&analyzeResponse($favicon->as_string() ,"/favicon.ico");
-	
-		#make checksum
-		my $MD5 = Digest::MD5->new;
-		$MD5->add($favicon->content);
-		my $checksum = $MD5->hexdigest;
+	foreach my $favLocation (@favArry){
+		my $favicon = $ua->get("http://$Host/$favLocation");
 		
+		if($favicon->is_success){
+		
+			#make checksum
+			my $MD5 = Digest::MD5->new;
+			$MD5->add($favicon->content);
+			my $checksum = $MD5->hexdigest;
+			
 
-		open(faviconMD5DB, "+< DB/favicon.db");
-		my @faviconMD5db = <faviconMD5DB>;
-		
-		
-		my @faviconMD5StringMsg; # split DB by line
-		foreach my $lineIDK (@faviconMD5db){
-			push(@faviconMD5StringMsg, $lineIDK);
-		}
-		
-		foreach my $faviconMD5String (@faviconMD5StringMsg){
-			&matchScan($faviconMD5String,$checksum,"Web service Found (favicon.ico)");
-		}
+			open(faviconMD5DB, "+< DB/favicon.db");
+			my @faviconMD5db = <faviconMD5DB>;
+			
+			
+			my @faviconMD5StringMsg; # split DB by line
+			foreach my $lineIDK (@faviconMD5db){
+				push(@faviconMD5StringMsg, $lineIDK);
+			}
+			
+			foreach my $faviconMD5String (@faviconMD5StringMsg){
+				&matchScan($faviconMD5String,$checksum,"Web service Found (favicon.ico)");
+			}
 
-		close(faviconMD5DB);
+			close(faviconMD5DB);
+		}
 	}
 }
 
 
 
 
-sub cms{
+sub cms{ # cms default files with version info
 	open(cmsDB, "+< DB/CMS.db");
 	my @parseCMSdb = <cmsDB>;
 	
@@ -718,25 +753,26 @@ sub cms{
 
 
 
-sub interesting{ # look for DBs, dirs, login pages, and emails and such
+sub interesting{ # emails plugins and such
 	my $mineShaft = shift;
 	my $mineUrl = shift;
 	my $PageContentType = shift;
-	
+
 	my @InterestingStringsFound;
 	my @IndexData;
-	
-	my @interestingStings = ( # much thiner cuz was to general and verbose
+
+	my @interestingStings = (
 							'\/cgi-bin',
 							'\/wp-content\/plugins\/',
 							'\/components\/',
 							'\/modules\/',
 							'\/templates\/',
 							'_vti_',
-							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov)', #emails
+							'\/~', # Apache Account
+							'@.*\.(com|org|net|tv|uk|au|edu|mil|gov)', #emails
 							'<!--#', #SSI
 							);
-	
+
 	foreach my $checkInterestingSting (@interestingStings){
 		if($PageContentType =~ /text\/html/i){
 			my @IndexData = split(/</,$mineShaft);
@@ -752,7 +788,7 @@ sub interesting{ # look for DBs, dirs, login pages, and emails and such
 					$splitIndex =~ s/  / /g;
 				}
 				# the split chops off < so i just stick it in there to make it look pretty
-				push(@InterestingStringsFound, "<$splitIndex\n\t");
+				push(@InterestingStringsFound, " \"$splitIndex\"");
 			}
 		
 		}
@@ -823,6 +859,9 @@ sub FingerPrint{
 	#my $Dconf = 0;my $daemon;my $Resdump = $resAnalIndex->as_string();my @orderHeadersChop = split("\n\n", $Resdump);my @orderHeaders = split("\n", $orderHeadersChop[0]);open(FPDB,'+< DB/http_finger-print.db');my @FPsDataBaseSplit = <FPDB>;foreach my $TestFP (@FPsDataBaseSplit){if($TestFP eq '{'){next;} else {unless($TestFP eq '}'){if($TestFP =~ /Daemon-/){$TestFP =~ s/Daemon-//; #leave just name remaining $daemon = $TestFP;chomp $daemon;next;}foreach my $examineHeader (@orderHeaders){if($examineHeader =~ /$TestFP/i){$Dconf++;} else {}}push(@Weight,"$daemon;$Dconf");}}}close(FPDB);
 }
 
+
+
+
 sub Ninja{
 	&bannerGrab();
 	sleep(int((rand(3)+2))); # pause for a random amount of time
@@ -831,4 +870,25 @@ sub Ninja{
 	&Robots();
 	sleep(int((rand(3)+2)));
 	&WScontent();
+	sleep(int((rand(3)+2)));
+	&checkOpenDirListing('/images', '/thumbs', '/imgs');
+}
+
+
+
+
+# directory-list-2.3-big.db is under Copyright 2007 James Fisher
+# see Original file in Dirbuster for link to licence
+# I did not aid or assist in the creation or production of directory-list-2.3-big.db
+sub Dirbuster{
+
+	print "+ Dirbuster database takes awhile.... No joke. Go to the movies or something\n";
+
+	open(DirbustDBFile, "+< DB/directory-list-2.3-big.db");
+	my @parseDirbust = <DirbustDBFile>;
+	
+	foreach my $JustDir (@parseDirbust){
+		&nonSyntDatabaseScan($JustDir,"Directory found");
+	}
+	close(DirbustDBFile);
 }
