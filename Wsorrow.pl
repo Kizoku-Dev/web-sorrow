@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.2
+#VERSION 1.3.3
 
 use LWP::UserAgent;
 use LWP::ConnCache;
@@ -31,7 +31,7 @@ use strict;
 use warnings;
 
 
-		print "\n+ Web Sorrow 1.3.2 Version detection, misconfig, and enumeration tool\n";
+		print "\n+ Web Sorrow 1.3.3 Version detection, misconfig, and enumeration tool\n";
 
 
 		my $i;
@@ -155,22 +155,22 @@ SCANS:
                 wp = wordpress 
     -Fd   --  look for common interesting files and dirs
     -Fp   --  Fingerprint http server based on behavior
-    -Ws   --  scan for Web Services on host such as: hosting porvider, 
+    -Ws   --  scan for Web Services on host such as: hosting provider, 
               blogging service, favicon fingerprinting, and cms version info
     -Db   --  BruteForce Directories with the big dirbuster Database
     -e    --  everything. run all scans
 	
 	
 OTHER:
-    -I      --  Passively find interesting strings in responses
-    -ninja  --  A light weight and undetectable scan that uses bits and peices 
-                from other scans (it is not recomended to use with any other scans 
-                if you want to be stealthy)
-    -ua     --  useragent to use (default is firefox linux)
+    -I       --  Passively find interesting strings in responses
+    -ninja   --  A light weight and undetectable scan that uses bits and peices 
+                 from other scans (it is not recomended to use with any other scans 
+                 if you want to be stealthy)
+    -ua [ua] --  useragent to use. you may want to put it in quotes. (default is firefox linux)
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
-    perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm
+    perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "A script with the munchies"
     perl Wsorrow.pl -host 66.11.227.35 -proxy 129.255.1.17:3128 -S -Ws -I 
 };
 
@@ -184,7 +184,7 @@ sub checkHostAvailibilty{
 		print "Host: $Host maybe offline or unavailble!\n";
 		&PromtUser('Do you wish to continue anyway (y/n) ? ');
 		if($Opt =~ /n/i){
-			print "You should try hdt.pl for more conclusive host discovery\nExiting. Good Bye! come back anytime now ya hear\n";
+			print "You should try hdt.pl for more conclusive host discovery\nExiting. Good Bye!\n";
 			exit();
 		}
 	}
@@ -212,7 +212,7 @@ sub analyzeResponse{ # heres were all the smart is...
 	my @PosibleErrorStrings = (
 								'404 error',
 								'404 page',
-								'error 404', # any digit so it can be 404 or 400 whatever
+								'error 404', 
 								'not found',
 								'cannot be found',
 								'could not find',
@@ -235,7 +235,7 @@ sub analyzeResponse{ # heres were all the smart is...
 		print "+ Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
 	}
 	
-	while(defined $ErrorStringsFound[0]){  pop @ErrorStringsFound;  } # saves the above if for the next go around
+	undef(@ErrorStringsFound); # emty array. saves the above if for the next go around
 	
 	
 	unless(defined $auth){ # that would make a SAD panda :(
@@ -304,7 +304,10 @@ sub analyzeResponse{ # heres were all the smart is...
 		&interesting($CheckResp,$checkURL,$indexContentType);
 	}
 	
-	&MatchDirIndex($checkURL, $checkURL); # passivly scan for Directory Indexing
+	&MatchDirIndex($checkURL, $CheckResp); # passivly scan for Directory Indexing
+	
+	
+	$CheckResp = undef;
 }
 
 sub genErrorString{
@@ -334,9 +337,14 @@ sub dataBaseScan{ # use a database for scanning.
 		
 		# send req and validate
 		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
+		
+		
 		if($checkMsgDir->is_success){
 			print "+ $scanMSG: \"$JustDir\"  -  $MSG\n";
 			&analyzeResponse($checkMsgDir->as_string() ,$JustDir);
+		}
+		if($checkMsgDir->code == 401){
+			print "+ Item \"$JustDir\" responded with HTTP status: 401 authentication required\n"; 
 		}
 		$checkMsgDir = undef;
 }
@@ -351,6 +359,9 @@ sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
 		if($checkDir->is_success){
 			print "+ $scanMSGNonSynt: \"/$DataFromDBNonSynt\"\n";
 			&analyzeResponse($checkDir->as_string() ,$DataFromDBNonSynt);
+		}
+		if($checkDir->code == 401){
+			print "+ Item \"/$DataFromDBNonSynt\" responded with HTTP status: 401 authentication required\n"; 
 		}
 		$checkDir = undef;
 }
@@ -527,13 +538,13 @@ sub Standard{ #some standard stuff
 			print "+ INTENTIONALLY bad requests sent with the file Extention(s) @badexts responded with odd status codes. any results from this server with those files extention(s) may be void\n";
 		}
 	
-		while(defined $badexts[0]){  pop @badexts;  } # saves the above if for the next go around
+		undef(@badexts);
 		
 
 		#does the site have a mobile page?
-		my $MobileUA = LWP::UserAgent->new;
-		$MobileUA->agent('Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0');
-		my $mobilePage = $MobileUA->get("http://$Host/");
+		$ua->agent('Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0');
+		my $mobilePage = $ua->get("http://$Host/");
+		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027"); # set back to regualr mozilla
 		my $regularPage = $ua->get("http://$Host/");
 		
 		unless($mobilePage->content() eq $regularPage->content()){
@@ -561,21 +572,24 @@ sub Standard{ #some standard stuff
 		#Apache account name
 		
 		my @apcheUserNames = ('usr','user','admin','adminstrator','steve','twighlighsparkle');
+		my $ApachUsrRes;
 		
 		foreach my $usrnm (@apcheUserNames){
 			my $ApcheUseNmTest = $ua->get("http://$Host/~" . $usrnm);
 			
 			if($ApcheUseNmTest->code == 200 or $ApcheUseNmTest->code == 401){
-				print "+ This server has Apache user accounts enabled. like: ~user\n";
+				my $ApachUsrRes = "+ This server has Apache user accounts enabled. like: ~user\n";
 				&analyzeResponse($ApcheUseNmTest->as_string() ,"/~$usrnm");
 			}
 		}
+		print $ApachUsrRes unless $ApachUsrRes eq "";
+
 }
 
 
 
 
-sub auth{ # this DB is pretty good but not complete
+sub auth{ # this DB is pretty good but needs more pazzaz
 
 	
 	open(authDB, "+< DB/login.db");
@@ -799,7 +813,7 @@ sub interesting{ # emails plugins and such
 			print "+ Interesting text found in \"$mineUrl\" @InterestingStringsFound\n";
 		}
 		
-		while(defined $InterestingStringsFound[0]){  pop @InterestingStringsFound;  } # saves the above if for the next go around
+		undef(@InterestingStringsFound); # saves the above if for the next go around
 	
 	}
 	$mineShaft = undef;
