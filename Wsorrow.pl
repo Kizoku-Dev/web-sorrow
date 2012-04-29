@@ -17,21 +17,22 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.3
+#VERSION 1.3.4
 
-use LWP::UserAgent;
-use LWP::ConnCache;
-use HTTP::Request;
-use HTTP::Response;
-use Digest::MD5;
-use Getopt::Long;
-use encoding "utf-8";
+BEGIN { # it seems to load faster. plus outputs the name and version faster
+	print "\n+ Web Sorrow 1.3.4 Version detection, misconfig, and enumeration tool\n";
 
-use strict;
-use warnings;
+	use LWP::UserAgent;
+	use LWP::ConnCache;
+	use HTTP::Request;
+	use HTTP::Response;
+	use Digest::MD5;
+	use Getopt::Long;
+	use encoding "utf-8";
 
-
-		print "\n+ Web Sorrow 1.3.3 Version detection, misconfig, and enumeration tool\n";
+	use strict;
+	use warnings;
+}
 
 
 		my $i;
@@ -57,6 +58,7 @@ use warnings;
 			"ninja" => \my $nin,
 			"Db" => \my $DirB, # use dirbuster database
 			"ua=s" => \my $UserA,
+			"Sd" => \my $SubDom,
 		);
 
 		# usage
@@ -103,6 +105,7 @@ use warnings;
 		if(defined $Fd){ &FilesAndDirsGoodies(); }
 		if(defined $e){ &runAll(); }
 		if(defined $DirB){ &Dirbuster(); }
+		if(defined $SubDom){ &SubDomainBF(); }
 		
 		
 		
@@ -111,6 +114,7 @@ use warnings;
 			&FingerPrint();
 			&auth();
 			&webServices();
+			&SubDomainBF();
 			&cmsPlugins();
 			&FilesAndDirsGoodies();
 			&Dirbuster();
@@ -142,13 +146,13 @@ Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)]
 
 HOST OPTIONS:
     -host [host]     -- Defines host to use.
-    -proxy [ip:port] -- use a proxy server
+    -proxy [ip:port] -- use an HTTP proxy server
 	
 	
 SCANS:
     -S    --  Standard misconfig scans including: agresive directory indexing, banner grabbing,
               language detection, robots.txt, HTTP 200 response testing, etc.
-    -auth --  Dictionary attack to find login pages (not passwords)
+    -auth --  Dictionary attack to find login pages and admin consoles (not passwords)
     -Cp [dp | jm | wp | all] -- scan for cms plugins.
                 dp = drupal
                 jm = joomla
@@ -158,6 +162,7 @@ SCANS:
     -Ws   --  scan for Web Services on host such as: hosting provider, 
               blogging service, favicon fingerprinting, and cms version info
     -Db   --  BruteForce Directories with the big dirbuster Database
+	-Sd   --  BruteForce Subdomains (host given must be a domain. Not an IP)
     -e    --  everything. run all scans
 	
 	
@@ -202,13 +207,12 @@ sub analyzeResponse{ # heres were all the smart is...
 	my $CheckResp = shift;
 	my $checkURL = shift;
 	
-	unless($checkURL =~ /\//){
+	unless($checkURL =~ /^\//){
 		$checkURL = "/" . $checkURL; # makes for good output
 	}
 	
-	#False Positive checking
+	#False Positive checking based on page content
 	my @ErrorStringsFound;
-	
 	my @PosibleErrorStrings = (
 								'404 error',
 								'404 page',
@@ -234,10 +238,10 @@ sub analyzeResponse{ # heres were all the smart is...
 	if(defined $ErrorStringsFound[0]){ # if the page contains multi error just put em into the same string
 		print "+ Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
 	}
-	
 	undef(@ErrorStringsFound); # emty array. saves the above if for the next go around
 	
 	
+	# Login Page detection
 	unless(defined $auth){ # that would make a SAD panda :(
 		my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
 		foreach my $loginCheck (@PosibleLoginPageStrings){
@@ -247,47 +251,36 @@ sub analyzeResponse{ # heres were all the smart is...
 		}
 	}
 	
+	
 	#determine content-type
-	my $indexContentType;
-	my $IndexPage = $resAnalIndex->as_string();
-	my @indexheadersChop = split("\n\n", $IndexPage);
-	my @indexHeaders = split("\n", $indexheadersChop[0]); # tehe i know...
+	my $respContentType;
+	my @indexHeaders = &getHeaders($CheckResp);
 	
 	foreach my $indexHeader (@indexHeaders){
 		if($indexHeader =~ /content-type:/i){
-			$indexContentType = $indexHeader;
+			$respContentType = $indexHeader;
 		}
 	}
 	
+	
 	# check headers
-	my @analheadersChop = split("\n\n", $CheckResp);
-	my @analHeaders = split("\n", $analheadersChop[0]); # tehe i know...
+	my @analHeaders = &getHeaders($CheckResp); # tehe i know...
 	
 	foreach my $analHString (@analHeaders){ # method used in sub Standard is not used here because of custom msgs and there's not more then 2 headers per msg so why bother
 	
 		#the page is empty?
-		if($analHString =~ /Content-Length: (0|1)$/i){
-			print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";
-		}
+		if($analHString =~ /Content-Length: (0|1)$/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
 		
 		#auth page checking
-		if($analHString =~ /www-authenticate:/i){
-			print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";
-		}
+		if($analHString =~ /www-authenticate:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 		
 		#a hash?
-		if($analHString =~ /Content-MD5:/i){
-			print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";
-		}
+		if($analHString =~ /Content-MD5:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 		
 		#redircted me?
-		if($analHString =~ /refresh:/i){
-			print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n" unless $analHString =~ /refresh:( |)\d?/i;
-		}
+		if($analHString =~ /refresh:/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n" unless $analHString =~ /refresh:( |)\d?/i;  }
 		
-		if($analHString =~ /http\/1.1 30(1|2|7)/i){
-			print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";
-		}
+		if($analHString =~ /http\/1.1 30(1|2|7)/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
 		
 		if($analHString =~ /location:/i){
 			my @checkLocation = split(/:/,$analHString);
@@ -299,14 +292,12 @@ sub analyzeResponse{ # heres were all the smart is...
 		
 	}
 	
-	
+
 	if(defined $interesting or defined $nin or defined $e){
-		&interesting($CheckResp,$checkURL,$indexContentType);
+		&interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
 	}
-	
-	&MatchDirIndex($checkURL, $CheckResp); # passivly scan for Directory Indexing
-	
-	
+	&MatchDirIndex($CheckResp, $checkURL); # passivly scan for Directory Indexing
+
 	$CheckResp = undef;
 }
 
@@ -324,6 +315,45 @@ sub proxy{ # simple!!! i loves it
 	$ua->proxy('http',"http://$ProxyServer");
 }
 
+sub getHeaders{ #simply extract http headers
+	my $rawFullPage = shift;
+	
+	my @headersChop = split("\n\n", $rawFullPage);
+	my @HeadersRetu = split("\n", $headersChop[0]);
+	
+	return @HeadersRetu;
+	$rawFullPage = undef;
+}
+
+sub oddHttpStatus{ # Detect when there an odd HTTP status
+		my $StatusToMine = shift;
+		my $StatusFrom = shift;
+		
+		unless($StatusFrom=~ /^\//){
+			$checkURL = "/" . $checkURL; # makes for good output
+		}
+		
+		my @StatMine = split("\n",$StatusToMine);
+		my $StatCode = $StatMine[0];
+		
+		if($StatCode =~ /HTTP\/1\.(0|1) 401/i){
+			print "+ Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n"; 
+		}
+		if($StatCode =~ /HTTP\/1\.(0|1) 403/i){
+			print "+ Item \"$StatusFrom\" responded with HTTP status: \"403 Forbiden\" (exists but denied access)\n"; 
+		}
+		if($StatCode =~ /HTTP\/1\.(0|1) 424/i){
+			print "+ Item \"$StatusFrom\" responded with HTTP status: \"424 Locked\"\n"; 
+		}
+		if($StatCode =~ /HTTP\/1\.(0|1) 429/i){
+			print "+ Item \"$StatusFrom\" responded with HTTP status: \"429 Too Many Requests\" Try -ninja\n"; 
+		}
+		if($StatCode =~ /HTTP\/1\.(0|1) 509/i){
+			print "+ Item \"$StatusFrom\" responded with HTTP status: \"509 Bandwidth Limit Exceeded\" Try -ninja\n"; 
+		}
+		$StatusToMine = undef;
+}
+
 sub dataBaseScan{ # use a database for scanning.
 	my $DataFromDB = shift;
 	my $scanMSG = shift;
@@ -338,14 +368,12 @@ sub dataBaseScan{ # use a database for scanning.
 		# send req and validate
 		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
 		
-		
 		if($checkMsgDir->is_success){
 			print "+ $scanMSG: \"$JustDir\"  -  $MSG\n";
 			&analyzeResponse($checkMsgDir->as_string() ,$JustDir);
 		}
-		if($checkMsgDir->code == 401){
-			print "+ Item \"$JustDir\" responded with HTTP status: 401 authentication required\n"; 
-		}
+		&oddHttpStatus($checkMsgDir->as_string() ,$JustDir); # can't put in repsonceAnalysis cuz of ->is_success
+		
 		$checkMsgDir = undef;
 }
 
@@ -360,9 +388,8 @@ sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
 			print "+ $scanMSGNonSynt: \"/$DataFromDBNonSynt\"\n";
 			&analyzeResponse($checkDir->as_string() ,$DataFromDBNonSynt);
 		}
-		if($checkDir->code == 401){
-			print "+ Item \"/$DataFromDBNonSynt\" responded with HTTP status: 401 authentication required\n"; 
-		}
+		&oddHttpStatus($checkDir->as_string() ,$DataFromDBNonSynt);
+		
 		$checkDir = undef;
 }
 
@@ -403,12 +430,9 @@ sub Standard{ #some standard stuff
 		
 
 			my $resP = $ua->get("http://$Host/");
-			my $headers = $resP->as_string();
-			
 			&analyzeResponse($resP->as_string() ,"/");
 			
-			my @headersChop = split("\n\n", $headers);
-			my @headers = split("\n", $headersChop[0]);
+			my @headers = &getHeaders($resP->as_string());
 			
 			foreach my $HString (@headers){
 				foreach my $checkSingleHeader (@checkHeaders){
@@ -433,6 +457,7 @@ sub Standard{ #some standard stuff
 					my $roboContent = $roboTXT->decoded_content;
 					while ($roboContent =~ /\n\n/) {	$roboContent =~ s/\n\n/\n/g;	} # cleaner. some robots have way to much white space
 					while ($roboContent =~ /\t/) {	$roboContent =~ s/\t//g;	}
+					chomp $roboContent; #prevents duble newlines
 					
 					print $roboContent . "\n";
 				}
@@ -471,11 +496,11 @@ sub Standard{ #some standard stuff
 
 				my $IndexFind = $ua->get("http://$Host" . $dir);
 				my $IndDir = $dir; # a hack to shutup strict
-				&MatchDirIndex($IndDir, $IndexFind->content);
+				&MatchDirIndex($IndexFind->content, $IndDir);
 				
 				sub MatchDirIndex {
-					my $dirr = shift;
 					my $IndexConFind = shift;
+					my $dirr = shift;
 					
 					# Apache
 					if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
@@ -514,13 +539,11 @@ sub Standard{ #some standard stuff
 				
 				
 				unless($lineIDK =~ /lang=('|")('|")/){ # empty?
-					print "+ page Laguage found: $lineIDK\n";
+					print "+ Page Laguage found: $lineIDK\n";
 					last; # somtimes pages have like 4 or 5 so just find one
 				}
 			}
 		}
-		
-		
 		
 		
 		# Some servers just give you a 200 with every req. lets see
@@ -548,7 +571,7 @@ sub Standard{ #some standard stuff
 		my $regularPage = $ua->get("http://$Host/");
 		
 		unless($mobilePage->content() eq $regularPage->content()){
-			print "+ index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
+			print "+ Index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
 		}
 		$mobilePage = undef; $regularPage = undef;
 		
@@ -570,7 +593,6 @@ sub Standard{ #some standard stuff
 		close(FilesAndDirsDBFileS);
 		
 		#Apache account name
-		
 		my @apcheUserNames = ('usr','user','admin','adminstrator','steve','twighlighsparkle');
 		my $ApachUsrRes;
 		
@@ -655,7 +677,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
 
-	print "+ interesting Files And Dirs takes awhile....\n";
+	print "+ Interesting Files And Dirs takes awhile....\n";
 	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
 	
 	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
@@ -665,7 +687,7 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 			my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
 			
 			foreach my $JustDir (@parseFilesAndDirsDB){
-				&nonSyntDatabaseScan($JustDir,"interesting File or Dir Found");
+				&nonSyntDatabaseScan($JustDir,"Interesting File or Dir Found");
 			}
 		close(FilesAndDirsDBFile);
 
@@ -677,9 +699,9 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 
 
-sub webServices{ # as of v 1.2.7 it's acually worth the time typing "-Ws" to use it! HORAYYY
+sub webServices{
 
-	sub WScontent{
+	sub WScontent{ # match page content with known services related
 		open(webServicesDB, "+< DB/web-services.db");
 		my @parsewebServicesdb = <webServicesDB>;
 		
@@ -771,7 +793,7 @@ sub interesting{ # emails plugins and such
 	my $mineShaft = shift;
 	my $mineUrl = shift;
 	my $PageContentType = shift;
-
+	
 	my @InterestingStringsFound;
 	my @IndexData;
 
@@ -783,17 +805,19 @@ sub interesting{ # emails plugins and such
 							'\/templates\/',
 							'_vti_',
 							'\/~', # Apache Account
-							'@.*\.(com|org|net|tv|uk|au|edu|mil|gov)', #emails
+							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co)', #emails
 							'<!--#', #SSI
 							);
 
 	foreach my $checkInterestingSting (@interestingStings){
-		if($PageContentType =~ /text\/html/i){
-			my @IndexData = split(/</,$mineShaft);
-		} else {
-			my @IndexData = split(/\n/,$mineShaft);
-		}
+
+		 
+		my @IndexData = split(/</,$mineShaft); #html
 		
+		if($PageContentType =~ /(plain\/text|text\/plain)/i){
+			my @IndexData = split(/\n/,$mineShaft); # reset if text file
+		}
+
 		foreach my $splitIndex (@IndexData){
 			if($splitIndex =~ /$checkInterestingSting/i){
 				while($splitIndex =~ /(\n|\t|  )/){
@@ -801,7 +825,11 @@ sub interesting{ # emails plugins and such
 					$splitIndex =~ s/\t//g;
 					$splitIndex =~ s/  / /g;
 				}
-				# the split chops off < so i just stick it in there to make it look pretty
+				
+				if(length($splitIndex) > 500){
+					print "+ Interesting text found in \"$mineUrl\" You should manualy review it\n";
+					next;
+				}
 				push(@InterestingStringsFound, " \"$splitIndex\"");
 			}
 		
@@ -905,4 +933,28 @@ sub Dirbuster{
 		&nonSyntDatabaseScan($JustDir,"Directory found");
 	}
 	close(DirbustDBFile);
+}
+
+
+
+sub SubDomainBF{ #thaks to deepmagic.com [mubix] for a lot of the DB/SubDomain
+	my $DomainOnly = $Host;
+	
+	if($DomainOnly =~ /.*?\..*?\./i){ # if subdomain
+		$DomainOnly =~ s/.*?\.//; #remove subdomain: blah.ws.com -> ws.com
+	}
+
+	open(SubDomainDB, "+< DB/SubDomain.db");
+	my @parseSubDomainDB = <SubDomainDB>;
+	
+	foreach my $subD (@parseSubDomainDB){
+		chomp $subD;
+		my $TestSubDomain = $ua->get("http://$subD.$DomainOnly");
+		
+		if($TestSubDomain->is_success){
+			print "+ Sub Domain Found: $subD.$DomainOnly\n";
+		}
+	}
+	$TestSubDomain = undef;
+	close(SubDomainDB);
 }
