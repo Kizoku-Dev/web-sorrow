@@ -14,17 +14,21 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use Net::Ping;
-use IO::Socket::INET;
-use Getopt::Long;
+BEGIN {
+	print "+ Web-Sorrow (extra tool) Simple Host Discovery v2\n";
+	
+	use Net::Ping;
+	use IO::Socket::INET;
+	use Getopt::Long;
+	use threads;
+	use threads::shared;
 
-use warnings;
-use strict;
-
+	use warnings;
+	use strict;
+}
 my $Host = "none";
 GetOptions("host=s" => \$Host);
 
-print "+ Web-Sorrow (extra tool) Simple Host Discovery v1\n";
 
 # usage
 if($Host eq "none"){
@@ -32,36 +36,60 @@ if($Host eq "none"){
 	exit();
 }
 
-my $Stat = "Host is DOWN";
+
+my $Stat :shared = "Host is DOWN";
 
 my @ports = (7, 23, 25, 53, 54, 80, 443, 3128, 6669, 8008, 8080); # common ports
+my @thrdsArryS;
 
 #full connect
+push(@thrdsArryS, threads->new( sub {
+	foreach my $port (@ports) {
+		
+		
+		my $SockTest = IO::Socket::INET->new(
+			PeerAddr => $Host,
+			PeerPort => $port,
+			Proto => 'tcp',
+			Timeout => 0,
+		) or next;
+		
+		print "+ Successful prob -> OPEN $port/tcp\n" and $Stat = "Host Is UP";
+		close($SockTest);
+	}
+}));
 
-foreach my $port (@ports) {
-	
-	my $SockTest = IO::Socket::INET->new(
-		PeerAddr => $Host,
-		PeerPort => $port,
-		Proto => 'tcp'
-	) or next;
-	
-	print "+ OPEN $port/tcp\n" and $Stat = "Host Is UP"; 
-	close($SockTest);
+foreach my $threadd (@thrdsArryS){
+	$threadd->join();
 }
 
 
 # pings a plenty
 my @Methods = ('tcp','icmp','udp');
+my @thrdsArry;
 
-foreach my $Meth (@Methods){
-	foreach my $port (@ports) {
-		my $ping = Net::Ping->new($Meth, 1, 50);
-		$ping->port_number($port);
-
-		print "+ OPEN $port/$Meth (ping)\n" and $Stat = "Host Is UP" if $ping->ping($Host);
-
+	foreach my $Meth (@Methods){
+		push(@thrdsArry, threads->new( sub {
+			foreach my $port (@ports) {
+				&sexysexyPingTime($Meth, $port, $Host);
+			}
+		}));
+		
 	}
+	
+	foreach my $thread (@thrdsArry){
+		$thread->join();
+	}
+	
+sub sexysexyPingTime{
+	my $Method = shift;
+	my $portt = shift;
+	my $Hostt = shift;
+	
+	my $ping = Net::Ping->new($Method, 0, 24);
+	$ping->port_number($portt);
+	
+	print "+ Successful prob -> OPEN $portt/$Method (ping)\n" and $Stat = "Host Is UP" if $ping->ping($Hostt);
 }
 
 print "+ $Stat\n+ Scan finished :'(";
