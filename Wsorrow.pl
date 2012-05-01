@@ -17,10 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.4
+#VERSION 1.3.5
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web Sorrow 1.3.4 Version detection, misconfig, and enumeration tool\n";
+	print "\n+ Web Sorrow 1.3.5 Version detection, misconfig, and enumeration tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -38,6 +38,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		my $i;
 		my $Opt;
 		my $Host = "none";
+		my $Version = "1.3.5";
 
 		my $ua = LWP::UserAgent->new(conn_cache => 1);
 		$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
@@ -60,7 +61,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			"ua=s" => \my $UserA,
 			"Sd" => \my $SubDom,
 		);
-
+		
+		
 		# usage
 		if($Host eq "none"){
 			&usage();
@@ -92,7 +94,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		if(defined $ProxyServer){
 			&proxy(); # always make sure to put this first, lest we send un-proxied packets
 		}
-
+		
+		
 		&checkHostAvailibilty() unless defined $nin; # skip if --ninja for more stealth
 		my $resAnalIndex = $ua->get("http://$Host/");
 
@@ -162,7 +165,7 @@ SCANS:
     -Ws   --  scan for Web Services on host such as: hosting provider, 
               blogging service, favicon fingerprinting, and cms version info
     -Db   --  BruteForce Directories with the big dirbuster Database
-	-Sd   --  BruteForce Subdomains (host given must be a domain. Not an IP)
+    -Sd   --  BruteForce Subdomains (host given must be a domain. Not an IP)
     -e    --  everything. run all scans
 	
 	
@@ -826,11 +829,12 @@ sub interesting{ # emails plugins and such
 					$splitIndex =~ s/  / /g;
 				}
 				
-				if(length($splitIndex) > 500){
+				if(length($splitIndex) > 500){ # too big for output
 					print "+ Interesting text found in \"$mineUrl\" You should manualy review it\n";
-					next;
+					last;
+				} else {
+					push(@InterestingStringsFound, " \"$splitIndex\"");
 				}
-				push(@InterestingStringsFound, " \"$splitIndex\"");
 			}
 		
 		}
@@ -937,13 +941,16 @@ sub Dirbuster{
 
 
 
-sub SubDomainBF{ #thaks to deepmagic.com [mubix] for a lot of the DB/SubDomain
+sub SubDomainBF{ #thaks to deepmagic.com [mubix] for a lot of the DB/SubDomain.db
+	print "+ -Sd takes a minute or two\n";
+	
 	my $DomainOnly = $Host;
+	my $FindCount = 0;
 	
 	if($DomainOnly =~ /.*?\..*?\./i){ # if subdomain
 		$DomainOnly =~ s/.*?\.//; #remove subdomain: blah.ws.com -> ws.com
 	}
-
+	
 	open(SubDomainDB, "+< DB/SubDomain.db");
 	my @parseSubDomainDB = <SubDomainDB>;
 	
@@ -951,10 +958,18 @@ sub SubDomainBF{ #thaks to deepmagic.com [mubix] for a lot of the DB/SubDomain
 		chomp $subD;
 		my $TestSubDomain = $ua->get("http://$subD.$DomainOnly");
 		
+		
 		if($TestSubDomain->is_success){
-			print "+ Sub Domain Found: $subD.$DomainOnly\n";
+			print "+ SubDomain Found: $subD.$DomainOnly\n";
+			$FindCount++;
 		}
+		&oddHttpStatus($TestSubDomain->as_string, "$subD.$DomainOnly");
 	}
 	$TestSubDomain = undef;
 	close(SubDomainDB);
+	
+	if($FindCount > 69){
+		print "+ That is an odd amount of sub domains! Those results may not be accurate\n";
+	}
+
 }
