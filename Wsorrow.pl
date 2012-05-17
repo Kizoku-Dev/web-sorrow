@@ -17,10 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.5
+#VERSION 1.3.6
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web Sorrow 1.3.5 Version detection, misconfig, and enumeration tool\n";
+	print "\n+ Web-Sorrow v1.3.6 Version detection, misconfig, and enumeration tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -38,7 +38,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		my $i;
 		my $Opt;
 		my $Host = "none";
-		my $Version = "1.3.5";
+		my $Port = 80;
 
 		my $ua = LWP::UserAgent->new(conn_cache => 1);
 		$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
@@ -47,6 +47,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 
 		GetOptions("host=s" => \$Host, # host ip or domain
+			"port=i" => \$Port, # port number
 			"S" => \my $S, # Standard checks
 			"auth" => \my $auth, # MEH!!!!!! self explanitory
 			"Cp=s" => \my $cmsPlugins, # cms plugins
@@ -58,8 +59,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			"Fp" => \my $Fp, # fingerprint web server
 			"ninja" => \my $nin,
 			"Db" => \my $DirB, # use dirbuster database
-			"ua=s" => \my $UserA,
-			"Sd" => \my $SubDom,
+			"ua=s" => \my $UserA, # userAgent
+			"Sd" => \my $SubDom, # subdomain
 		);
 		
 		
@@ -72,6 +73,10 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		if($Host =~ /http(s|):\/\//i){ #check host input
 			$Host =~ s/http(s|):\/\///gi;
 			$Host =~ s/\/.*//g;
+		}
+		
+		unless($Port == 80){
+			$Host = $Host . ":$Port"
 		}
 		
 		print "+ Host: $Host\n";
@@ -98,17 +103,18 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		
 		&checkHostAvailibilty() unless defined $nin; # skip if --ninja for more stealth
 		my $resAnalIndex = $ua->get("http://$Host/");
-
+		
+		# in order of aproximate finish times
 		if(defined $S){ &Standard(); }
+		if(defined $Fp){ &FingerPrint(); }
 		if(defined $nin){ &Ninja(); }
 		if(defined $auth){ &auth(); }
 		if(defined $cmsPlugins){ &cmsPlugins(); }
-		if(defined $Fp){ &FingerPrint(); }
 		if(defined $Ws){ &webServices(); }
-		if(defined $Fd){ &FilesAndDirsGoodies(); }
-		if(defined $e){ &runAll(); }
-		if(defined $DirB){ &Dirbuster(); }
 		if(defined $SubDom){ &SubDomainBF(); }
+		if(defined $Fd){ &FilesAndDirsGoodies(); }
+		if(defined $DirB){ &Dirbuster(); }
+		if(defined $e){ &runAll(); }
 		
 		
 		
@@ -149,37 +155,41 @@ Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)]
 
 HOST OPTIONS:
     -host [host]     -- Defines host to use.
-    -proxy [ip:port] -- use an HTTP proxy server
-	
-	
+    -port [port num] -- Defines port number to use (Default is 80)
+    -proxy [ip:port] -- Use an HTTP proxy server
+
+
+
 SCANS:
-    -S    --  Standard misconfig scans including: agresive directory indexing, banner grabbing,
-              language detection, robots.txt, HTTP 200 response testing, etc.
-    -auth --  Dictionary attack to find login pages and admin consoles (not passwords)
+    -S    --  Standard misconfig scans including: agresive directory indexing,
+              banner grabbing, Language detection, robots.txt,
+              HTTP 200 response testing, etc.
+    -auth --  Scan for login pages and admin consoles (not passwords)
     -Cp [dp | jm | wp | all] -- scan for cms plugins.
                 dp = drupal
                 jm = joomla
                 wp = wordpress 
-    -Fd   --  look for common interesting files and dirs
+    -Fd   --  Look for common interesting files and dirs
     -Fp   --  Fingerprint http server based on behavior
-    -Ws   --  scan for Web Services on host such as: hosting provider, 
-              blogging service, favicon fingerprinting, and cms version info
+    -Ws   --  Scan for Web Services on host such as: cms version info, 
+              blogging services, favicon fingerprinting, and hosting provider
     -Db   --  BruteForce Directories with the big dirbuster Database
     -Sd   --  BruteForce Subdomains (host given must be a domain. Not an IP)
-    -e    --  everything. run all scans
-	
-	
+    -e    --  Everything. run all scans
+
+
 OTHER:
-    -I       --  Passively find interesting strings in responses
-    -ninja   --  A light weight and undetectable scan that uses bits and peices 
-                 from other scans (it is not recomended to use with any other scans 
-                 if you want to be stealthy)
-    -ua [ua] --  useragent to use. you may want to put it in quotes. (default is firefox linux)
+    -I       --  Passively find interesting strings in responses (results may
+                 contain partial html)
+    -ninja   --  A light weight and undetectable scan that uses bits and
+                 peices from other scans (it is not recomended to use with any
+                 other scans if you want to be stealthy)
+    -ua [ua] --  Useragent to use. put it in quotes. (default is firefox linux)
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
     perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "A script with the munchies"
-    perl Wsorrow.pl -host 66.11.227.35 -proxy 129.255.1.17:3128 -S -Ws -I 
+    perl Wsorrow.pl -host 66.11.227.35 -port 8080 -proxy 129.255.1.17:3128 -S -Ws -I 
 };
 
 }
@@ -187,6 +197,7 @@ EXAMPLES:
 sub checkHostAvailibilty{
 	my $CheckHost1 = $ua->get("http://$Host/");
 	my $CheckHost2 = $ua->get("http://$Host");
+	&analyzeResponse($CheckHost2->decoded_content, "/");
 	
 	if($CheckHost2->is_error and $CheckHost1->is_error){
 		print "Host: $Host maybe offline or unavailble!\n";
@@ -232,6 +243,7 @@ sub analyzeResponse{ # heres were all the smart is...
 								'unable to open',
 								'check your spelling',
 								'an error has occurred',
+								'request has been blocked',
 								);
 	foreach my $errorCheck (@PosibleErrorStrings){
 		if($CheckResp =~ /$errorCheck/i){
@@ -248,7 +260,7 @@ sub analyzeResponse{ # heres were all the smart is...
 	unless(defined $auth){ # that would make a SAD panda :(
 		my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
 		foreach my $loginCheck (@PosibleLoginPageStrings){
-			if($CheckResp =~ /<title>.*+$loginCheck<\/title>/i){
+			if($CheckResp =~ /<title>.*?$loginCheck<\/title>/i){
 				print "+ Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
 			}
 		}
@@ -301,6 +313,7 @@ sub analyzeResponse{ # heres were all the smart is...
 	}
 	&MatchDirIndex($CheckResp, $checkURL); # passivly scan for Directory Indexing
 
+
 	$CheckResp = undef;
 }
 
@@ -310,7 +323,7 @@ sub genErrorString{
 		$errorStringGGG .= chr((int(rand(93)) + 33)); # random 20 bytes to invoke 404 sometimes 400
 	}
 	
-	$errorStringGGG =~ s/(#|&|\?)//g; #strip anchors and q stings
+	$errorStringGGG =~ s/(#|&|\?|\/)//g; #strip anchors and q stings and such
 	return $errorStringGGG;
 }
 
@@ -328,6 +341,27 @@ sub getHeaders{ #simply extract http headers
 	$rawFullPage = undef;
 }
 
+sub IsRealResponce{ # Take the red pill neo
+	my $TestResponceContent = shift; # the one being tested
+	my $BadResponceTestt = shift; # the bad one
+	my $BadResponceTestt2 = shift;
+	my $BadResponceTestt3 = shift;
+	
+	# remove things that's sometimes dynamic
+	$TestResponceContent =~ s/(<!--.*?-->|style=('|").*?('|")|<object.*?object\/>|<script.*?script\/>)//;
+	$BadResponceTestt =~ s/(<!--.*?-->|style=('|").*?('|")|<script.*?script\/>|<object.*?object\/>)//;
+	$BadResponceTestt2 =~ s/(<!--.*?-->|style=('|").*?('|")|<object.*?object\/>|<script.*?script\/>)//;
+	$BadResponceTestt3 =~ s/(<!--.*?-->|style=('|").*?('|")|<object.*?object\/>|<script.*?script\/>)//;
+	
+	if("$TestResponceContent" eq "$BadResponceTestt" or "$TestResponceContent" eq "$BadResponceTestt2" or "$TestResponceContent" eq "$BadResponceTestt3"){ # compair
+		return "bad";
+	} else {
+		return "good";
+	}
+	undef($TestResponceContent);
+	undef($BadResponceTestt);
+}
+
 sub oddHttpStatus{ # Detect when there an odd HTTP status
 		my $StatusToMine = shift;
 		my $StatusFrom = shift;
@@ -340,7 +374,7 @@ sub oddHttpStatus{ # Detect when there an odd HTTP status
 		my $StatCode = $StatMine[0];
 		
 		if($StatCode =~ /HTTP\/1\.(0|1) 401/i){
-			print "+ Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n"; 
+			print "+ Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n";
 		}
 		if($StatCode =~ /HTTP\/1\.(0|1) 403/i){
 			print "+ Item \"$StatusFrom\" responded with HTTP status: \"403 Forbiden\" (exists but denied access)\n"; 
@@ -372,7 +406,7 @@ sub dataBaseScan{ # use a database for scanning.
 		my $checkMsgDir = $ua->get("http://$Host" . $JustDir);
 		
 		if($checkMsgDir->is_success){
-			print "+ $scanMSG: \"$JustDir\"  -  $MSG\n";
+			print "+ $scanMSG: \"$JustDir\" - $MSG\n";
 			&analyzeResponse($checkMsgDir->as_string() ,$JustDir);
 		}
 		&oddHttpStatus($checkMsgDir->as_string() ,$JustDir); # can't put in repsonceAnalysis cuz of ->is_success
@@ -629,7 +663,7 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 		&dataBaseScan($authDirAndMsg,'Login Page Found');
 	}
 
-
+	undef(@parseAUTHdb);
 	close(authDB);
 }
 
@@ -668,6 +702,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 		foreach my $JustDir (@parsecmsPluginDB){
 			&nonSyntDatabaseScan($JustDir,"CMS Plugin Found");
 		}
+		undef(@parsecmsPluginDB);
 		close(cmsPluginDBFile);
 
 	}
@@ -684,14 +719,15 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
 	
 	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
-			print "+ Testing Files And Dirs with Database: $FilesAndDirsDB\n";
+		print "+ Testing Files And Dirs with Database: $FilesAndDirsDB\n";
 			
-			open(FilesAndDirsDBFile, "+< $FilesAndDirsDB");
-			my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
+		open(FilesAndDirsDBFile, "+< $FilesAndDirsDB");
+		my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
 			
-			foreach my $JustDir (@parseFilesAndDirsDB){
-				&nonSyntDatabaseScan($JustDir,"Interesting File or Dir Found");
-			}
+		foreach my $JustDir (@parseFilesAndDirsDB){
+			&nonSyntDatabaseScan($JustDir,"Interesting File or Dir Found");
+		}
+		undef(@parseFilesAndDirsDB);
 		close(FilesAndDirsDBFile);
 
 	}
@@ -785,55 +821,62 @@ sub cms{ # cms default files with version info
 	foreach my $cmsDirAndMsg (@cmsDirMsg){
 		&dataBaseScan($cmsDirAndMsg,'Web service Found (cms)'); #this func can only be called when the DB uses the /dir;msg format
 	}
-
+	
+	undef(@parseCMSdb);
 	close(cmsDB);
 }
 
 
 
 
-sub interesting{ # emails plugins and such
+sub interesting{ # emails, plugins and such
 	my $mineShaft = shift;
 	my $mineUrl = shift;
 	my $PageContentType = shift;
+	
+	$mineShaft =~ s/.*?\n\n//; #remove headers
 	
 	my @InterestingStringsFound;
 	my @IndexData;
 
 	my @interestingStings = (
-							'\/cgi-bin',
-							'\/wp-content\/plugins\/',
-							'\/components\/',
-							'\/modules\/',
-							'\/templates\/',
-							'_vti_',
-							'\/~', # Apache Account
-							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co)', #emails
-							'<!--#', #SSI
+							'\/cgi-bin;CGI Dir',
+							'\/wp-content\/plugins\/;WordPress Plugin',
+							'\/components\/;Possible Drupal Plugin',
+							'\/modules\/;Drupal Plugin',
+							'\/templates\/;template',
+							'_vti_;IIS Default Dir/File',
+							'\/~;Apache User Dir', # Apache Account
+							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co);Email', #emails
+							'<!--#;Server Side Include', #SSI
+							'fb:admins;Facebook fbids'
 							);
 
 	foreach my $checkInterestingSting (@interestingStings){
-
+		my @InSplit = split(/;/, $checkInterestingSting);
+		$checkInterestingSting = $InSplit[0];
+		my $InMSG = $InSplit[1]; # set msg
+		
 		 
-		my @IndexData = split(/</,$mineShaft); #html
+		my @IndexData = split(/>/,$mineShaft); #html
 		
 		if($PageContentType =~ /(plain\/text|text\/plain)/i){
 			my @IndexData = split(/\n/,$mineShaft); # reset if text file
 		}
 
 		foreach my $splitIndex (@IndexData){
-			if($splitIndex =~ /$checkInterestingSting/i){
+			if($splitIndex =~ /$checkInterestingSting/){
 				while($splitIndex =~ /(\n|\t|  )/){
 					$splitIndex =~ s/\n/ /g;
 					$splitIndex =~ s/\t//g;
 					$splitIndex =~ s/  / /g;
 				}
 				
-				if(length($splitIndex) > 500){ # too big for output
-					print "+ Interesting text found in \"$mineUrl\" You should manualy review it\n";
+				if(length($splitIndex) > 300){ # too big for output
+					print "+ Interesting text ($InMSG) found in \"$mineUrl\" You should manualy review it\n";
 					last;
 				} else {
-					push(@InterestingStringsFound, " \"$splitIndex\"");
+					push(@InterestingStringsFound, " ($InMSG) \"$splitIndex\"\n");
 				}
 			}
 		
@@ -842,7 +885,7 @@ sub interesting{ # emails plugins and such
 
 		
 		if(defined $InterestingStringsFound[0]){ # if the page contains multi error just put em into the same string
-			print "+ Interesting text found in \"$mineUrl\" @InterestingStringsFound\n";
+			print "+ Interesting text found in \"$mineUrl\": @InterestingStringsFound\n";
 		}
 		
 		undef(@InterestingStringsFound); # saves the above if for the next go around
@@ -936,13 +979,15 @@ sub Dirbuster{
 	foreach my $JustDir (@parseDirbust){
 		&nonSyntDatabaseScan($JustDir,"Directory found");
 	}
+	undef(@parseDirbust);# unload from RAM
 	close(DirbustDBFile);
 }
 
 
 
-sub SubDomainBF{ #thaks to deepmagic.com [mubix] for a lot of the DB/SubDomain.db
-	print "+ -Sd takes a minute or two\n";
+
+sub SubDomainBF{ #thanks to deepmagic.com [mubix] for a lot of the DB/SubDomain.db
+	print "+ -Sd takes a few minutes\n";
 	
 	my $DomainOnly = $Host;
 	my $FindCount = 0;
@@ -951,25 +996,45 @@ sub SubDomainBF{ #thaks to deepmagic.com [mubix] for a lot of the DB/SubDomain.d
 		$DomainOnly =~ s/.*?\.//; #remove subdomain: blah.ws.com -> ws.com
 	}
 	
+	# weed out the fakes
+	my $BadSubDomain = "jhgcvjHGCjhJCJhfcURstwQwe" . int(rand(100)) . int(rand(100));
+	my $BadSubDomainTest = $ua->get("http://$BadSubDomain.$DomainOnly");
+	my $BadSubDomainTest2 = $ua->get("http://$DomainOnly"); #this chunck of code records the responces for &IsRealResponce();
+	my $BadSubDomainTest3 = $ua->get("http://$DomainOnly/");
+	
+	
 	open(SubDomainDB, "+< DB/SubDomain.db");
 	my @parseSubDomainDB = <SubDomainDB>;
 	
-	foreach my $subD (@parseSubDomainDB){
+	foreach my $subD (@parseSubDomainDB){ # start the scans
 		chomp $subD;
 		my $TestSubDomain = $ua->get("http://$subD.$DomainOnly");
 		
+		my $IsGood = &IsRealResponce($TestSubDomain->content, $BadSubDomainTest->content,  $BadSubDomainTest2->content, $BadSubDomainTest3->content); # higher confindence
 		
 		if($TestSubDomain->is_success){
-			print "+ SubDomain Found: $subD.$DomainOnly\n";
+			print "+ SubDomain Found: $subD.$DomainOnly ";
+			
+			if($IsGood eq "bad"){
+				print "(Confindence low)\n";
+			} elsif($IsGood eq "good"){
+				print "\n";
+			}
+			
 			$FindCount++;
 		}
 		&oddHttpStatus($TestSubDomain->as_string, "$subD.$DomainOnly");
 	}
+	
+	
 	$TestSubDomain = undef;
+	undef(@parseSubDomainDB); # unload from RAM
 	close(SubDomainDB);
 	
 	if($FindCount > 69){
 		print "+ That is an odd amount of sub domains! Those results may not be accurate\n";
+	} elsif ($FindCount == 0){
+		print "+ Could not find any SubDomains on this host\n";
 	}
 
 }
