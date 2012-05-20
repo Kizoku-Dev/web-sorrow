@@ -14,7 +14,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-print "Web-Sorrow (Extra Tool) DNSpull v1";
+print "Web-Sorrow (Extra Tool) DNSpull v1.1";
 print "tell me if it works for you or not @flyinpoptartcat or email\n";
 	
 use Net::DNS::Packet;
@@ -33,8 +33,8 @@ if($Host eq "none"){
 	exit();
 }
 
-print "+ ptr mx txt A AAAA KX IN records:\n";
+print "+ PTR MX TXT A AAAA KX IN CNAME records:\n";
 
-my $packet = Net::DNS::Packet->new($Host, "PTR", "MX", "TXT", "A", "AAAA", "KX");
+my $packet = Net::DNS::Packet->new($Host, "PTR", "MX", "TXT", "A", "AAAA", "KX", "IN", "CNAME");
 
 print $packet->string;
