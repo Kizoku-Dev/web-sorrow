@@ -17,10 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.7
+#VERSION 1.3.8
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web-Sorrow v1.3.7 Version detection, misconfig, and enumeration tool\n";
+	print "\n+ Web-Sorrow v1.3.8 Version detection, misconfig, and enumeration scanning tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -40,7 +40,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		my $Opt;
 		my $Host = "none";
 		my $Port = 80;
-		my $TreadsOpen = 0;
+		my @FoundMatchItems;
 		
 		my $ua = LWP::UserAgent->new(conn_cache => 1);
 		$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
@@ -49,22 +49,23 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
 
-		GetOptions("host=s" => \$Host, # host ip or domain
-			"port=i" => \$Port, # port number
-			"S" => \my $S, # Standard checks
-			"auth" => \my $auth, # MEH!!!!!! self explanitory
-			"Cp=s" => \my $cmsPlugins, # cms plugins
-			"I" => \my $interesting, # find interesting text
-			"Ws" => \my $Ws, # Web services
-			"e" => \my $e, # EVERYTHINGGGGGGGG
+		GetOptions(
+			"host=s"  => \$Host, # host ip or domain
+			"port=i"  => \$Port, # port number
+			"S"       => \my $S, # Standard checks
+			"auth"    => \my $auth, # MEH!!!!!! self explanitory
+			"Cp=s"    => \my $cmsPlugins, # cms plugins
+			"I"       => \my $interesting, # find interesting text
+			"Ws"      => \my $Ws, # Web services
+			"e"       => \my $e, # EVERYTHINGGGGGGGG
 			"proxy=s" => \my $ProxyServer, #use a proxy
-			"Fd" => \my $Fd, # files and dirs
-			"ninja" => \my $nin,
-			"Db" => \my $DirB, # use dirbuster database
-			"ua=s" => \my $UserA, # userAgent
-			"Sd" => \my $SubDom, # subdomain
-			"R" => \my $RangHeader,
-			"Shadow" => \my $shdw,
+			"Fd"      => \my $Fd, # files and dirs
+			"ninja"   => \my $nin,
+			"Db"      => \my $DirB, # use dirbuster database
+			"ua=s"    => \my $UserA, # userAgent
+			"Sd"      => \my $SubDom, # subdomain
+			"R"       => \my $RangHeader,
+			"Shadow"  => \my $shdw,
 		);
 		
 		
@@ -194,7 +195,7 @@ OTHER:
                  contain partial html)
     -ninja   --  A light weight and undetectable scan that uses bits and
                  peices from other scans (it is not recomended to use with any
-                 other scans if you want to be stealthy)
+                 other scans if you want to be stealthy. See readme.txt)
     -ua [ua] --  Useragent to use. put it in quotes. (default is firefox linux)
     -R       --  Only request HTTP headers. This is much faster but some
                  features and capabilities may not work with this option.
@@ -288,23 +289,11 @@ sub analyzeResponse{ # heres were all the smart is...
 		}
 	}
 	
-	
-	#determine content-type
-	my $respContentType;
-	my @indexHeaders = &getHeaders($CheckResp);
-	
-	foreach my $indexHeader (@indexHeaders){
-		if($indexHeader =~ /content-type:/i){
-			$respContentType = $indexHeader;
-		}
-	}
-	undef(@indexHeaders);
-	
 	# check headers
 	my @analHeaders = &getHeaders($CheckResp); # tehe i know...
 	
 	foreach my $analHString (@analHeaders){ # method used in sub Standard is not used here because of custom msgs and there's not more then 2 headers per msg so why bother
-	
+		study $analHString;
 		#the page is empty?
 		if($analHString =~ /Content-Length: (0|1|2|3)$/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
 		
@@ -317,7 +306,7 @@ sub analyzeResponse{ # heres were all the smart is...
 		#redircted me?
 		if($analHString =~ /refresh:/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n" unless $analHString =~ /refresh:( |)\d?/i;  }
 		
-		if($analHString =~ /http\/1.1 30(1|2|7)/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
+		if($analHString =~ /http\/1.(1|0) 30(1|2|7)/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
 		
 		if($analHString =~ /location:/i){
 			my @checkLocation = split(/:/,$analHString);
@@ -330,12 +319,28 @@ sub analyzeResponse{ # heres were all the smart is...
 	}
 	undef(@analHeaders);
 
+	
+	
 	if(defined $interesting or defined $nin or defined $e){
+		#determine content-type
+		my $respContentType;
+		my @indexHeaders = &getHeaders($CheckResp);
+	
+		foreach my $indexHeader (@indexHeaders){
+			if($indexHeader =~ /content-type:/i){
+				$respContentType = $indexHeader;
+			}
+		}
+		undef(@indexHeaders);
 		&interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
 	}
+	
 	&MatchDirIndex($CheckResp, $checkURL); # passivly scan for Directory Indexing
-
-
+	
+	if(defined $Ws){
+		&WScontent($CheckResp);
+	}
+	
 	$CheckResp = undef;
 }
 
@@ -374,6 +379,7 @@ sub oddHttpStatus{ # Detect when there an odd HTTP status
 		
 		my @StatMine = split("\n",$StatusToMine);
 		my $StatCode = $StatMine[0];
+		study $StatCode;
 		
 		if($StatCode =~ /HTTP\/1\.(0|1) 401/i){
 			print "+ Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n";
@@ -405,7 +411,7 @@ sub dataBaseScan{ # use a database for scanning.
 		chomp $MSG;
 		
 		# send req and validate
-		$Testreq = $ua->get("http://$Host/$JustDir");
+		$Testreq = $ua->get("http://$Host" . "$JustDir");
 		if($Testreq->is_success){
 			print "+ $scanMSG: \"$JustDir\" - $MSG\n";
 			&analyzeResponse($Testreq->as_string() ,$JustDir);
@@ -423,7 +429,7 @@ sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
 		# send req and check if it's valid
 		$Testreq2 = $ua->get("http://$Host/$DataFromDBNonSynt");;
 		if($Testreq2->is_success){
-			print "+ $scanMSGNonSynt: \"$DataFromDBNonSynt\"\n";
+			print "+ $scanMSGNonSynt: \"/$DataFromDBNonSynt\"\n";
 			&analyzeResponse($Testreq2->as_string() ,$DataFromDBNonSynt);
 		}
 		&oddHttpStatus($Testreq2->as_string() ,$DataFromDBNonSynt); # can't put in repsonceAnalysis cuz of ->is_success
@@ -435,6 +441,8 @@ sub matchScan{
 	my $checkMatchFromDB = shift;
 	my $checkMatch = shift;
 	my $matchScanMSG = shift;
+	my $FoundBefor = 0;
+	study $checkMatch;
 	chomp $checkMatchFromDB;
 	
 	
@@ -443,7 +451,16 @@ sub matchScan{
 		my $msMSG = $matchScanLineFromDB[1]; #this is the message printed if it's a match
 
 		if($checkMatch =~ /$msJustString/){
-			print "+ $matchScanMSG: $msMSG\n";
+			foreach my $MatchItemFound (@FoundMatchItems){
+				if($MatchItemFound eq $msJustString){
+					$FoundBefor = 1; # set true
+				}
+			}
+			push(@FoundMatchItems, $msJustString);
+			
+			unless($FoundBefor){ #prevents double output
+				print "+ $matchScanMSG: $msMSG\n";
+			}
 		}
 	
 	$checkMatch = undef;
@@ -525,7 +542,9 @@ sub Standard{ #some standard stuff
 							'/style',
 							'/styles',
 							'/docs',
+							'/doc',
 							'/pics',
+							'/pic',
 							'/_',
 							'/thumbnails',
 							'/thumbs',
@@ -539,35 +558,36 @@ sub Standard{ #some standard stuff
 		sub checkOpenDirListing{
 			my (@DIRlist) = @_;
 			foreach my $dir (@DIRlist){ # I took out Responce analysis on this cuz it validates if it is a true index already
-
 				my $IndexFind = $ua->get("http://$Host" . $dir);
 				my $IndDir = $dir; # a hack to shutup strict
-				&MatchDirIndex($IndexFind->content, $IndDir);
-				
-				sub MatchDirIndex {
-					my $IndexConFind = shift;
-					my $dirr = shift;
-					
-					# Apache
-					if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
-						# extra checking (<a.*>last modified</a>, ...)
-						print "+ Directory indexing found in \"$dirr\"\n";
-					}
-
-					# Tomcat
-					if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-						print "+ Directory indexing found in \"$dirr\"\n";
-					}
-
-					# iis
-					if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
-						print "+ Directory indexing found in \"$dirr\"\n";
-					}
-					
-					$IndexConFind = undef;
+				if($IndexFind->is_success){
+					&analyzeResponse($IndexFind->as_string, $IndDir);
 				}
 			}
 			undef(@DIRlist);
+				
+		}
+		
+		sub MatchDirIndex {
+			my $IndexConFind = shift;
+			my $dirr = shift;
+				
+			# Apache
+			if($IndexConFind =~ /(<H1>Index of \/.*?<\/H1>|<title>Index of \/.*?<\/title>)/i){
+				print "+ Directory indexing found in \"$dirr\"\n";
+			}
+
+			# Tomcat
+			if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
+				print "+ Directory indexing found in \"$dirr\"\n";
+			}
+
+			# iis
+			if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
+				print "+ Directory indexing found in \"$dirr\"\n";
+			}
+			
+			$IndexConFind = undef;
 		}
 		
 		undef(@CommonDIRs);
@@ -632,7 +652,7 @@ sub Standard{ #some standard stuff
 		$ua->ssl_opts(verify_hostname => 1);
 		
 		my $sslreq = $ua->get("https://$Host");
-		unless(length($sslreq->content) == 0 or $sslreq->is_error){
+		unless($sslreq->is_error){
 			print "+ $Host is SSL capable\n";
 		}
 		$sslreq = undef;
@@ -642,7 +662,7 @@ sub Standard{ #some standard stuff
 		open(FilesAndDirsDBFileS, "+< DB/small-tests.db");
 		my @parseFilesAndDirsDBS = <FilesAndDirsDBFileS>;
 		foreach my $JustDirS (@parseFilesAndDirsDBS){
-			&nonSyntDatabaseScan($JustDirS,"Sensitive item found");
+			&nonSyntDatabaseScan($JustDirS,"Sensitive item found") unless $JustDirS =~ /^#/;;
 		}
 		close(FilesAndDirsDBFileS);
 		undef(@parseFilesAndDirsDBS);
@@ -680,24 +700,30 @@ sub Standard{ #some standard stuff
 						'/pics/',
 						'/pictures/',
 						'/icons/',
+						'/thumbs/',
+						'/thumbnails/',
+						'/wallpapers/',
+						'/iconset/',
 						'/',
 		);
 		
 		foreach my $imageDir (@imageDirs){
-			$getThumbs = $ua->get("http://$Host".$imageDir."thumbs.db");
+			foreach my $CapTumbs("thumbs.db","Thumbs.db"){
+				$getThumbs = $ua->get("http://$Host".$imageDir.$CapTumbs);
 			
-			if($getThumbs->is_success){
-				print "+ thumbs.db found. This suggests the host is running Windows\n";
+				if($getThumbs->is_success){
+					print "+ thumbs.db found. This suggests the host is running Windows\n";
+					last;
+				}
 			}
 		}
+		undef($getThumbs);
 }
 
 
 
 
 sub auth{ # this DB is pretty good but needs more pazzaz
-
-	
 	open(authDB, "+< DB/login.db");
 	my @parseAUTHdb = <authDB>;
 	
@@ -707,7 +733,7 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 	}
 	
 	foreach my $authDirAndMsg (@authDirMsg){
-		&dataBaseScan($authDirAndMsg,'Login Page Found');
+		&dataBaseScan($authDirAndMsg,'Login Page Found') unless $authDirAndMsg =~ /^#/;
 	}
 
 	undef(@parseAUTHdb);
@@ -747,7 +773,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 		my @parsecmsPluginDB = <cmsPluginDBFile>;
 
 		foreach my $JustDir (@parsecmsPluginDB){
-			&nonSyntDatabaseScan($JustDir,"CMS Plugin Found");
+			&nonSyntDatabaseScan($JustDir,"CMS Plugin Found") unless $JustDir =~ /^#/;
 		}
 		undef(@parsecmsPluginDB);
 		close(cmsPluginDBFile);
@@ -772,7 +798,7 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 		my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
 			
 		foreach my $JustDir (@parseFilesAndDirsDB){
-			&nonSyntDatabaseScan($JustDir,"Interesting File or Dir Found");
+			&nonSyntDatabaseScan($JustDir,"Interesting File or Dir Found") unless $JustDir =~ /^#/;
 		}
 		undef(@parseFilesAndDirsDB);
 		close(FilesAndDirsDBFile);
@@ -788,10 +814,10 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 sub webServices{
 
 	sub WScontent{ # match page content with known services related
+		my $webServicesTestPage = shift;
+		
 		open(webServicesDB, "+< DB/web-services.db");
 		my @parsewebServicesdb = <webServicesDB>;
-		
-		my $webServicesTestPage = $ua->get("http://$Host/");
 		
 		my @webServicesStringMsg;
 		foreach my $lineIDK (@parsewebServicesdb){
@@ -799,14 +825,14 @@ sub webServices{
 		}
 
 		foreach my $ServiceString (@webServicesStringMsg){
-			&matchScan($ServiceString,$webServicesTestPage->content,"Web service Found");
+			&matchScan($ServiceString,$webServicesTestPage,"Web service Found") unless $ServiceString =~ /^#/;
 		}
 
 
 		close(webServicesDB);
 	}
 	
-	&WScontent();
+	&WScontent($ua->get("http://$Host/")->content);
 	&faviconMD5(); # i'll just make a new sub
 	&cms();
 }
@@ -843,7 +869,7 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 			}
 			
 			foreach my $faviconMD5String (@faviconMD5StringMsg){
-				&matchScan($faviconMD5String,$checksum,"Web service Found (favicon.ico)");
+				&matchScan($faviconMD5String,$checksum,"Web service Found (favicon.ico)") unless $faviconMD5String =~ /^#/;
 			}
 
 			close(faviconMD5DB);
@@ -864,7 +890,7 @@ sub cms{ # cms default files with version info
 	}
 	
 	foreach my $cmsDirAndMsg (@cmsDirMsg){
-		&dataBaseScan($cmsDirAndMsg,'Web service Found (cms)'); #this func can only be called when the DB uses the /dir;msg format
+		&dataBaseScan($cmsDirAndMsg,'Web service Found (cms)') unless $cmsDirAndMsg =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
 	}
 	
 	undef(@parseCMSdb);
@@ -890,9 +916,10 @@ sub interesting{ # emails, plugins and such
 							'\/components\/;Possible Drupal Plugin',
 							'\/modules\/;Drupal Plugin',
 							'\/templates\/;template',
-							'_vti_;IIS Default Dir/File',
+							'\/_vti_;IIS Default Dir/File',
 							'\/~;Apache User Dir', # Apache Account
-							'@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co);Email', #emails
+							'\w@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co);Email', #emails
+							'(\t| |\n)@.*?\.(com|uk|au);maybe Twitter Account',
 							'<!--#;Server Side Include', #SSI
 							'fb:admins;Facebook fbids',
 							'\/.\/cpanel\/.*?\/images\/logo.gif\?service=mail;google mail',
@@ -911,6 +938,7 @@ sub interesting{ # emails, plugins and such
 		}
 
 		foreach my $splitIndex (@IndexData){
+			study $splitIndex;
 			if($splitIndex =~ /$checkInterestingSting/i){
 				while($splitIndex =~ /(\n|\t|  )/){
 					$splitIndex =~ s/(\n|\t|  )/ /g;
@@ -920,7 +948,7 @@ sub interesting{ # emails, plugins and such
 					print "+ Interesting text ($InMSG) found in \"$mineUrl\" You should manualy review it\n";
 					last;
 				} else {
-					push(@InterestingStringsFound, " \n  ($InMSG) \"$splitIndex\"");
+					push(@InterestingStringsFound, " \n\n  ($InMSG) \"$splitIndex\"");
 				}
 			}
 		
@@ -948,7 +976,8 @@ sub Ninja{
 	sleep(int((rand(3)+2)));
 	&Robots();
 	sleep(int((rand(3)+2)));
-	&WScontent();
+	my $webServicesTestPagee = $ua->get("http://$Host/");
+	&WScontent($webServicesTestPagee->content);
 	sleep(int((rand(3)+2)));
 	&checkOpenDirListing('/images', '/thumbs', '/imgs');
 }
@@ -967,7 +996,7 @@ sub Dirbuster{
 	my @parseDirbust = <DirbustDBFile>;
 	
 	foreach my $JustDir (@parseDirbust){
-		&nonSyntDatabaseScan($JustDir,"Directory found");
+		&nonSyntDatabaseScan($JustDir,"Directory found") unless $JustDir =~ /^#/;
 	}
 	undef(@parseDirbust);# unload from RAM
 	close(DirbustDBFile);
@@ -976,12 +1005,11 @@ sub Dirbuster{
 
 
 
-sub SubDomainBF{ #thanks to deepmagic.com [mubix] for a lot of the DB/SubDomain.db
+sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/SubDomain.db
 	print "+ -Sd takes awhile...\n";
 	
 	my $DomainOnly = $Host;
 	my $FindCount = 0;
-	my $TreadsOpen = 0;
 	
 	if($DomainOnly =~ /.*?\..*?\./i){ # if subdomain
 		$DomainOnly =~ s/.*?\.//; #remove subdomain: blah.ws.com -> ws.com
@@ -999,15 +1027,17 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] for a lot of the DB/SubDomain.
 			print "+ SubDomain Found: $SubDomainToRequest\n";
 			$FindCount++;
 		}
+		
 	}
 
 	
 	undef(@parseSubDomainDB); # unload from RAM
 	close(SubDomainDB);
 	
-	if($FindCount > 300){
-		print "+ That is an odd amount of sub domains! Those results may not be accurate or the host has the DNS wildcard config\n";
-	} elsif ($FindCount == 0){
+	if($FindCount > 1000){
+		print "+ The host may have the DNS wildcard configuration which would render those results null and void.\n";
+	}
+	if($FindCount == 0){
 		print "+ Could not find any SubDomains on this host\n";
 	} else {
 		print "+ $FindCount SubDomains Found\n";
