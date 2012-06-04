@@ -59,10 +59,6 @@ push(@thrdsArryS, threads->new( sub {
 	}
 }));
 
-foreach my $threadd (@thrdsArryS){
-	$threadd->join();
-}
-
 
 # pings a plenty
 my @Methods = ('tcp','icmp','udp');
@@ -76,11 +72,7 @@ my @thrdsArry;
 		}));
 		
 	}
-	
-	foreach my $thread (@thrdsArry){
-		$thread->join();
-	}
-	
+
 sub sexysexyPingTime{
 	my $Method = shift;
 	my $portt = shift;
@@ -92,4 +84,11 @@ sub sexysexyPingTime{
 	print "+ Successful prob -> OPEN $portt/$Method (ping)\n" and $Stat = "Host Is UP" if $ping->ping($Hostt);
 }
 
+
+foreach my $threadd (@thrdsArryS){
+	$threadd->join();
+}
+foreach my $thread (@thrdsArry){
+	$thread->join();
+}
 print "+ $Stat\n+ Scan finished :'(";
