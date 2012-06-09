@@ -17,10 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.8
+#VERSION 1.3.9
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web-Sorrow v1.3.8 Version detection, misconfig, and enumeration scanning tool\n";
+	print "\n+ Web-Sorrow v1.3.9(beta) Version detection, misconfig, and enumeration scanning tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -165,6 +165,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 sub usage{
 
 print q{
+Remember to check for updates http://web-sorrow.googlecode.com/
+
 Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)]
 
 HOST OPTIONS:
@@ -176,16 +178,16 @@ HOST OPTIONS:
 SCANS:
     -S       --  Standard set of scans including: agresive directory indexing,
                  Banner grabbing, Language detection, robots.txt,
-                 HTTP 200 response testing, Apache user enum, SSL capabilities,
+                 HTTP 200 response testing, Apache user enum, SSL cert,
                  Mobile page testing, sensitive items scanning, and
                  thumbs.db scanning
-    -auth    --  Scan for login pages and admin consoles
+    -auth    --  Scan for login pages, admin consoles, and email webapps
     -Cp [dp | jm | wp | all] -- scan for cms plugins.
                  dp = drupal, jm = joomla, wp = wordpress 
-    -Fd      --  Look for common interesting files and dirs
+    -Fd      --  Scan for common interesting files and dirs
     -Sd      --  BruteForce Subdomains (host given must be a domain. Not an IP)
     -Ws      --  Scan for Web Services on host such as: cms version info, 
-                 blogging services, favicon fingerprinting, and hosting provider
+                 blogging services, favicon fingerprints, and hosting provider
     -Db      --  BruteForce Directories with the big dirbuster Database
     -e       --  Everything. run all scans
 
@@ -207,7 +209,7 @@ OTHER:
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
-    perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "A script with the munchies"
+    perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "script w/ the munchies"
     perl Wsorrow.pl -host 66.11.227.35 -port 8080 -proxy 129.255.1.17:3128 -S -Ws -I 
 };
 
@@ -240,108 +242,100 @@ sub analyzeResponse{ # heres were all the smart is...
 	my $CheckResp = shift;
 	my $checkURL = shift;
 	
-	unless($checkURL =~ /^\//){
-		$checkURL = "/" . $checkURL; # makes for good output
-	}
-	
-	#False Positive checking based on page content
-	my @ErrorStringsFound;
-	my @PosibleErrorStrings = (
-								'404 error',
-								'404 page',
-								'error 404', 
-								'not found',
-								'cannot be found',
-								'could not find',
-								'can’t find',
-								'cannot found', # incorrect english but i'v seen it before
-								'bad request',
-								'server error',
-								'temporarily unavailable',
-								'not exist',
-								'unable to open',
-								'check your spelling',
-								'an error has occurred',
-								'an error occurred',
-								'request has been blocked',
-								'an automated process',
-								'nothing found',
-								'just calm down. 420',
-								);
-	foreach my $errorCheck (@PosibleErrorStrings){
-		if($CheckResp =~ /$errorCheck/i){
-			push(@ErrorStringsFound, "\"$errorCheck\" ");
+		unless($checkURL =~ /^\//){
+			$checkURL = "/" . $checkURL; # makes for good output
 		}
-	}
-	if(defined $ErrorStringsFound[0]){ # if the page contains multi error just put em into the same string
-		print "+ Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
-	}
-	undef(@ErrorStringsFound); # emty array. saves the above if for the next go around
-	
-	
-	# Login Page detection
-	unless(defined $auth){ # that would make a SAD panda :(
-		my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
-		foreach my $loginCheck (@PosibleLoginPageStrings){
-			if($CheckResp =~ /<title>.*?$loginCheck<\/title>/i){
-				print "+ Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
+		
+		#False Positive checking based on page content
+		my @ErrorStringsFound;
+		my @PosibleErrorStrings = (
+									'404 error',
+									'404 page',
+									'error 404', 
+									'not found',
+									'cannot be found',
+									'could not find',
+									'can’t find',
+									'cannot found', # incorrect english but i'v seen it before
+									'bad request',
+									'server error',
+									'temporarily unavailable',
+									'not exist',
+									'unable to open',
+									'check your spelling',
+									'an error has occurred',
+									'an error occurred',
+									'request has been blocked',
+									'an automated process',
+									'nothing found',
+									'just calm down. 420',
+									);
+		foreach my $errorCheck (@PosibleErrorStrings){
+			if($CheckResp =~ /$errorCheck/i){
+				push(@ErrorStringsFound, "\"$errorCheck\" ");
 			}
 		}
-	}
-	
-	# check headers
-	my @analHeaders = &getHeaders($CheckResp); # tehe i know...
-	
-	foreach my $analHString (@analHeaders){ # method used in sub Standard is not used here because of custom msgs and there's not more then 2 headers per msg so why bother
-		study $analHString;
-		#the page is empty?
-		if($analHString =~ /Content-Length: (0|1|2|3)$/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
+		if(defined $ErrorStringsFound[0]){ # if the page contains multi error just put em into the same string
+			print "+ Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
+		}
+		undef(@ErrorStringsFound); # emty array. saves the above if for the next go around
 		
-		#auth page checking
-		if($analHString =~ /www-authenticate:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 		
-		#a hash?
-		if($analHString =~ /Content-MD5:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
-		
-		#redircted me?
-		if($analHString =~ /refresh:/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n" unless $analHString =~ /refresh:( |)\d?/i;  }
-		
-		if($analHString =~ /http\/1.(1|0) 30(1|2|7)/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
-		
-		if($analHString =~ /location:/i){
-			my @checkLocation = split(/:/,$analHString);
-			my $lactionEnd = $checkLocation[1];
-			unless($lactionEnd =~ /$checkURL/i){ 
-				print "+ Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
+		# Login Page detection
+		unless(defined $auth){ # that would make a SAD panda :(
+			my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
+			foreach my $loginCheck (@PosibleLoginPageStrings){
+				if($CheckResp =~ /<title>.*?$loginCheck<\/title>/i){
+					print "+ Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
+				}
+			}
+		}
+		foreach my $analHString (@StatMine){
+			study $analHString;
+			#the page is empty?
+			if($analHString =~ /Content-Length: (0|1|2|3)$/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
+			
+			#auth page checking
+			if($analHString =~ /www-authenticate:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
+			
+			#a hash?
+			if($analHString =~ /Content-MD5:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
+			
+			#redircted me?
+			if($analHString =~ /refresh:/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
+			
+			if($StatCode =~ /HTTP\/1\.(1|0) 30(1|7)/i){ print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
+			
+			if($analHString =~ /location:/i){
+				my @checkLocation = split(/:/,$analHString);
+				my $lactionEnd = $checkLocation[1];
+				unless($lactionEnd =~ /$checkURL/i){ 
+					print "+ Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
+				}
 			}
 		}
 		
-	}
-	undef(@analHeaders);
+		if(defined $interesting or defined $nin or defined $e){
+			#determine content-type
+			my $respContentType;
+			my @indexHeaders = &getHeaders($CheckResp);
+		
+			foreach my $indexHeader (@indexHeaders){
+				if($indexHeader =~ /content-type:/i){
+					$respContentType = $indexHeader;
+				}
+			}
+			undef(@indexHeaders);
+			&interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
+		}
 
-	
-	
-	if(defined $interesting or defined $nin or defined $e){
-		#determine content-type
-		my $respContentType;
-		my @indexHeaders = &getHeaders($CheckResp);
-	
-		foreach my $indexHeader (@indexHeaders){
-			if($indexHeader =~ /content-type:/i){
-				$respContentType = $indexHeader;
-			}
+		&MatchDirIndex($CheckResp,$checkURL);
+		
+		if(defined $Ws){
+			&WScontent($CheckResp);
 		}
-		undef(@indexHeaders);
-		&interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
-	}
-	
-	&MatchDirIndex($CheckResp, $checkURL); # passivly scan for Directory Indexing
-	
-	if(defined $Ws){
-		&WScontent($CheckResp);
-	}
-	
-	$CheckResp = undef;
+		
+		$CheckResp = undef;
 }
 
 sub genErrorString{
@@ -367,9 +361,10 @@ sub getHeaders{ #simply extract http headers
 	return @HeadersRetu;
 	$rawFullPage = undef;
 	undef(@HeadersRetu);
+	undef(@headersChop);
 }
 
-sub oddHttpStatus{ # Detect when there an odd HTTP status
+sub oddHttpHeaders{ # Detect when there an odd HTTP status also other headers
 		my $StatusToMine = shift;
 		my $StatusFrom = shift;
 		
@@ -396,76 +391,83 @@ sub oddHttpStatus{ # Detect when there an odd HTTP status
 		if($StatCode =~ /HTTP\/1\.(0|1) 509/i){
 			print "+ Item \"$StatusFrom\" responded with HTTP status: \"509 Bandwidth Limit Exceeded\" Try -ninja\n"; 
 		}
+
+		
+		
+		
+		undef(@StatMine);
 		$StatusToMine = undef;
 }
 
 sub dataBaseScan{ # use a database for scanning.
 	my $DataFromDB = shift;
+	my $MatchFromCon = shift;
 	my $scanMSG = shift;
-	
-	
-		# take data from database and seperate dir from msg
-		my @LineFromDB = split(';',$DataFromDB);
-		my $JustDir = $LineFromDB[0]; #Dir or file to req
-		my $MSG = $LineFromDB[1]; #this is the message printed if the url req isn't an error
-		chomp $MSG;
-		
-		# send req and validate
-		$Testreq = $ua->get("http://$Host" . "$JustDir");
-		if($Testreq->is_success){
-			print "+ $scanMSG: \"$JustDir\" - $MSG\n";
-			&analyzeResponse($Testreq->as_string() ,$JustDir);
-		}
-		&oddHttpStatus($Testreq->as_string() ,$JustDir); # can't put in repsonceAnalysis cuz of ->is_success
-		$Testreq = undef;
-		$DataFromDB = undef;
-}
-
-sub nonSyntDatabaseScan{ # for DBs without the dir;msg format
-	my $DataFromDBNonSynt = shift;
-	my $scanMSGNonSynt = shift;
-	chomp $DataFromDBNonSynt;
-		
-		# send req and check if it's valid
-		$Testreq2 = $ua->get("http://$Host/$DataFromDBNonSynt");;
-		if($Testreq2->is_success){
-			print "+ $scanMSGNonSynt: \"/$DataFromDBNonSynt\"\n";
-			&analyzeResponse($Testreq2->as_string() ,$DataFromDBNonSynt);
-		}
-		&oddHttpStatus($Testreq2->as_string() ,$DataFromDBNonSynt); # can't put in repsonceAnalysis cuz of ->is_success
-		$Testreq2 = undef;
-		$DataFromDBNonSynt = undef;
-}
-
-sub matchScan{
-	my $checkMatchFromDB = shift;
-	my $checkMatch = shift;
-	my $matchScanMSG = shift;
+	my $databaseContext = shift;
 	my $FoundBefor = 0;
-	study $checkMatch;
-	chomp $checkMatchFromDB;
-	
-	
-		my @matchScanLineFromDB = split(';',$checkMatchFromDB);
-		my $msJustString = $matchScanLineFromDB[0]; #String to find
-		my $msMSG = $matchScanLineFromDB[1]; #this is the message printed if it's a match
-
-		if($checkMatch =~ /$msJustString/){
-			foreach my $MatchItemFound (@FoundMatchItems){
-				if($MatchItemFound eq $msJustString){
-					$FoundBefor = 1; # set true
+	chomp($DataFromDB, $scanMSG);
+			
+			if($databaseContext eq "nonSynt" or $databaseContext eq "Synt"){# send req and validate
+				
+				if ($databaseContext eq "Synt"){
+					my ($JustDirDB, $MSG) = split(';',$DataFromDB) ;
+					unless($JustDirDB =~ /^\//){
+						$JustDirDB = "/" . $JustDirDB unless $databaseContext eq "match";
+					}
+					&makeRequest($JustDirDB, $MSG, $scanMSG); # if i put this code elswere it breaks WFT? vars are being kidnaped!
+				} elsif($databaseContext eq "nonSynt"){
+					$JustDirDB = $DataFromDB;
+					unless($JustDirDB =~ /^\//){
+						$JustDirDB = "/" . $JustDirDB unless $databaseContext eq "match";
+					}
+					&makeRequest($JustDirDB, $MSG, $scanMSG); # if i put this code elswere it breaks WFT? vars are being kidnaped!
 				}
 			}
-			push(@FoundMatchItems, $msJustString);
+		
+		
+	
+		
+		if($databaseContext eq "match"){
+			my ($MatchDataFromDB, $MSG) = split(';',$DataFromDB);
 			
-			unless($FoundBefor){ #prevents double output
-				print "+ $matchScanMSG: $msMSG\n";
+			if($MatchFromCon =~ /$MatchDataFromDB/i){
+				 foreach my $MatchItemFound (@FoundMatchItems){
+					if($MatchItemFound eq $MatchFromCon){
+						$FoundBefor = 1; # set true
+					}
+				}
+				push(@FoundMatchItems, $MSG);
+			
+				unless($FoundBefor){ #prevents double output
+					print "+ $scanMSG: $MSG\n";
+				}
 			}
 		}
-	
-	$checkMatch = undef;
 }
 
+sub makeRequest{
+	my $JustDirDBB = shift;#to lazy to makeup new var names
+	my $MSGG = shift;
+	my $scanMSGG = shift;
+	
+			
+		my $Testreq = $ua->get("http://$Host" . $JustDirDBB);
+			
+		if($Testreq->is_success){
+			print "+ $scanMSGG: \"$JustDirDBB\"";
+			if ($databaseContext eq "Synt"){
+				print " - $MSGG\n";
+			} else {
+				print "\n";
+			}
+				
+			&analyzeResponse($Testreq->as_string(), $JustDirDBB);
+		}
+		
+		&oddHttpHeaders($Testreq->as_string(), $JustDirDBB); # can't put in repsonceAnalysis cuz of ->is_success
+		$Testreq = undef;
+		$JustDirDBB = undef;
+}
 
 #---------------------------------------------------------------------------------------------------------------
 # scanning subs
@@ -501,6 +503,7 @@ sub Standard{ #some standard stuff
 			undef(@headers);
 		}
 		
+		
 		#robots.txt
 		&Robots();
 		sub Robots{
@@ -528,70 +531,61 @@ sub Standard{ #some standard stuff
 		}
 		
 		
-		#lilith 6.0A rework of sub indexable with a cupple additions.
-		
-		my @CommonDIRs = (
-							'/images',
-							'/imgs',
-							'/img',
-							'/icons',
-							'/home',
-							'/pictures',
-							'/main',
-							'/css',
-							'/style',
-							'/styles',
-							'/docs',
-							'/doc',
-							'/pics',
-							'/pic',
-							'/_',
-							'/thumbnails',
-							'/thumbs',
-							'/scripts',
-							'/files',
-							'/js',
-							'/site',
-							);
-		&checkOpenDirListing(@CommonDIRs); # try to argesivly invoke
-		
-		sub checkOpenDirListing{
-			my (@DIRlist) = @_;
-			foreach my $dir (@DIRlist){ # I took out Responce analysis on this cuz it validates if it is a true index already
-				my $IndexFind = $ua->get("http://$Host" . $dir);
-				my $IndDir = $dir; # a hack to shutup strict
-				if($IndexFind->is_success){
-					&analyzeResponse($IndexFind->as_string, $IndDir);
+
+		my @findDirIndexing =  (
+						'/images',
+						'/imgs',
+						'/img',
+						'/icons',
+						'/home',
+						'/pictures',
+						'/main',
+						'/css',
+						'/style',
+						'/styles',
+						'/docs',
+						'/doc',
+						'/pics',
+						'/pic',
+						'/_',
+						'/thumbnails',
+						'/thumbs',
+						'/scripts',
+						'/files',
+						'/js',
+						'/site',
+						);
+						
+	
+		foreach my $IndexDir (@findDirIndexing){
+			my $Getind = $ua->get("http://$Host" . $IndexDir);
+			&MatchDirIndex($Getind->decoded_content, $IndexDir);
+			
+			sub MatchDirIndex {
+				my $IndexConFind = shift;
+				my $dirr = shift;
+				
+				# Apache
+				if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
+					print "+ Directory indexing found in \"$dirr\"\n";
+				}
+
+				# Tomcat
+				if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
+					print "+ Directory indexing found in \"$dirr\"\n";
+				}
+
+				# iis
+				if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
+					print "+ Directory indexing found in \"$dirr\"\n";
 				}
 			}
-			undef(@DIRlist);
-				
 		}
 		
-		sub MatchDirIndex {
-			my $IndexConFind = shift;
-			my $dirr = shift;
-				
-			# Apache
-			if($IndexConFind =~ /(<H1>Index of \/.*?<\/H1>|<title>Index of \/.*?<\/title>)/i){
-				print "+ Directory indexing found in \"$dirr\"\n";
-			}
-
-			# Tomcat
-			if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-				print "+ Directory indexing found in \"$dirr\"\n";
-			}
-
-			# iis
-			if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
-				print "+ Directory indexing found in \"$dirr\"\n";
-			}
-			
-			$IndexConFind = undef;
-		}
-		
-		undef(@CommonDIRs);
-		
+		$Getind = undef;
+		undef(@findDirIndexing);
+	
+	
 		
 		# laguage checks
 		my $LangReq = $ua->get("http://$Host/");
@@ -603,9 +597,7 @@ sub Standard{ #some standard stuff
 		foreach my $lineIDK (@langSpaceSplit){
 			if($lineIDK =~ /$langString('|").*?('|")/i){
 				while($lineIDK =~ /(\t|\n)/){  $lineIDK =~ s/(\t|\n)//; } #make pretty
-				if($lineIDK =~ /(<|>)/i){ #prevent html from sliping in
-					$lineIDK =~ s/(<.*?|>.*?)//g;
-				}
+				if($lineIDK =~ /(<|>|head)/i){ $lineIDK =~ s/(<.*?|>.*?|head)//g; } #prevent html from sliping in
 				
 				unless($lineIDK =~ /lang=('|")('|")/){ # empty?
 					print "+ Page Laguage found: $lineIDK\n";
@@ -648,12 +640,27 @@ sub Standard{ #some standard stuff
 			$ua->agent($UserA);
 		}
 		
-		# is ssl there?
+		# is ssl stuff
 		$ua->ssl_opts(verify_hostname => 1);
 		
-		my $sslreq = $ua->get("https://$Host");
-		unless($sslreq->is_error){
+		my $sslreq = $ua->get("https://$Host/");
+		if($sslreq->is_success){
 			print "+ $Host is SSL capable\n";
+			
+			my @parseSSL = &getHeaders($sslreq->as_string);
+			foreach my $SSLheader (@parseSSL){
+				chomp($SSLheader);
+				
+				if($SSLheader =~ /client-ssl-cipher:/i){ $SSLheader =~ s/client-ssl-cipher://i; print "+ SSL Cipher: $SSLheader\n"; }
+				if($SSLheader =~ /client-ssl-cert-issuer:/i){#extract
+					$SSLheader =~ s/client-ssl-cert-issuer://i;
+					$SSLheader =~ s/.*\/O=//i;
+					$SSLheader =~ s/\/.*//;
+					
+					print "+ SSL Certificate vendor: $SSLheader\n";
+				}
+			}
+			
 		}
 		$sslreq = undef;
 		$ua->ssl_opts(verify_hostname => 0);
@@ -662,7 +669,7 @@ sub Standard{ #some standard stuff
 		open(FilesAndDirsDBFileS, "+< DB/small-tests.db");
 		my @parseFilesAndDirsDBS = <FilesAndDirsDBFileS>;
 		foreach my $JustDirS (@parseFilesAndDirsDBS){
-			&nonSyntDatabaseScan($JustDirS,"Sensitive item found") unless $JustDirS =~ /^#/;;
+			&dataBaseScan($JustDirS,'',"Sensitive item found",'nonSynt') unless $JustDirS =~ /^#/;;
 		}
 		close(FilesAndDirsDBFileS);
 		undef(@parseFilesAndDirsDBS);
@@ -713,10 +720,11 @@ sub Standard{ #some standard stuff
 			
 				if($getThumbs->is_success){
 					print "+ thumbs.db found. This suggests the host is running Windows\n";
-					last;
+					goto doneThumbs;
 				}
 			}
 		}
+		doneThumbs:
 		undef($getThumbs);
 }
 
@@ -727,13 +735,8 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 	open(authDB, "+< DB/login.db");
 	my @parseAUTHdb = <authDB>;
 	
-	my @authDirMsg;
-	foreach my $lineIDK (@parseAUTHdb){
-		push(@authDirMsg, $lineIDK);
-	}
-	
-	foreach my $authDirAndMsg (@authDirMsg){
-		&dataBaseScan($authDirAndMsg,'Login Page Found') unless $authDirAndMsg =~ /^#/;
+	foreach my $authDirAndMsg (@parseAUTHdb){
+		&dataBaseScan($authDirAndMsg,'','Login Page Found','Synt') unless $authDirAndMsg =~ /^#/;
 	}
 
 	undef(@parseAUTHdb);
@@ -743,9 +746,7 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 
 
 
-sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
-	
-	
+sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.net
 	print "+ -Cp takes awhile....\n";
 	my @cmsPluginDBlist;
 	if(defined $e){$cmsPlugins = "all";}
@@ -773,7 +774,7 @@ sub cmsPlugins{ # Plugin databases provided by: Chris Sullo from cirt.net
 		my @parsecmsPluginDB = <cmsPluginDBFile>;
 
 		foreach my $JustDir (@parsecmsPluginDB){
-			&nonSyntDatabaseScan($JustDir,"CMS Plugin Found") unless $JustDir =~ /^#/;
+			&dataBaseScan($JustDir,'','CMS Plugin Found','nonSynt') unless $JustDir =~ /^#/;
 		}
 		undef(@parsecmsPluginDB);
 		close(cmsPluginDBFile);
@@ -798,7 +799,7 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 		my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
 			
 		foreach my $JustDir (@parseFilesAndDirsDB){
-			&nonSyntDatabaseScan($JustDir,"Interesting File or Dir Found") unless $JustDir =~ /^#/;
+			&dataBaseScan($JustDir,'','Interesting File or Dir Found','nonSynt') unless $JustDir =~ /^#/;
 		}
 		undef(@parseFilesAndDirsDB);
 		close(FilesAndDirsDBFile);
@@ -818,16 +819,10 @@ sub webServices{
 		
 		open(webServicesDB, "+< DB/web-services.db");
 		my @parsewebServicesdb = <webServicesDB>;
-		
-		my @webServicesStringMsg;
-		foreach my $lineIDK (@parsewebServicesdb){
-			push(@webServicesStringMsg, $lineIDK);
-		}
 
-		foreach my $ServiceString (@webServicesStringMsg){
-			&matchScan($ServiceString,$webServicesTestPage,"Web service Found") unless $ServiceString =~ /^#/;
+		foreach my $ServiceString (@parsewebServicesdb){
+			&dataBaseScan($ServiceString,$webServicesTestPage,'Web service found','match') unless $ServiceString =~ /^#/;
 		}
-
 
 		close(webServicesDB);
 	}
@@ -863,16 +858,13 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 			my @faviconMD5db = <faviconMD5DB>;
 			
 			
-			my @faviconMD5StringMsg; # split DB by line
-			foreach my $lineIDK (@faviconMD5db){
-				push(@faviconMD5StringMsg, $lineIDK);
+			foreach my $faviconMD5String (@faviconMD5db){
+				&dataBaseScan($faviconMD5String,$checksum,'Web service Found (favicon.ico)','match');
 			}
 			
-			foreach my $faviconMD5String (@faviconMD5StringMsg){
-				&matchScan($faviconMD5String,$checksum,"Web service Found (favicon.ico)") unless $faviconMD5String =~ /^#/;
-			}
-
+			undef(@faviconMD5db);
 			close(faviconMD5DB);
+			no Digest::MD5;
 		}
 	}
 }
@@ -883,14 +875,10 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 sub cms{ # cms default files with version info
 	open(cmsDB, "+< DB/CMS.db");
 	my @parseCMSdb = <cmsDB>;
+
 	
-	my @cmsDirMsg;
-	foreach my $lineIDK (@parseCMSdb){
-		push(@cmsDirMsg, $lineIDK);
-	}
-	
-	foreach my $cmsDirAndMsg (@cmsDirMsg){
-		&dataBaseScan($cmsDirAndMsg,'Web service Found (cms)') unless $cmsDirAndMsg =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
+	foreach my $cmsDirAndMsg (@parseCMSdb){
+		&dataBaseScan($cmsDirAndMsg,'','Web service Found (cms)','Synt') unless $cmsDirAndMsg =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
 	}
 	
 	undef(@parseCMSdb);
@@ -913,11 +901,12 @@ sub interesting{ # emails, plugins and such
 	my @interestingStings = (
 							'\/cgi-bin;CGI Dir',
 							'\/wp-content\/plugins\/;WordPress Plugin',
+							'\/wp-includes\/;Wordpress include',
 							'\/components\/;Possible Drupal Plugin',
 							'\/modules\/;Drupal Plugin',
 							'\/templates\/;template',
 							'\/_vti_;IIS Default Dir/File',
-							'\/~;Apache User Dir', # Apache Account
+							'$Host\/~;Apache User Dir', # Apache Account
 							'\w@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co);Email', #emails
 							'(\t| |\n)@.*?\.(com|uk|au);maybe Twitter Account',
 							'<!--#;Server Side Include', #SSI
@@ -944,7 +933,7 @@ sub interesting{ # emails, plugins and such
 					$splitIndex =~ s/(\n|\t|  )/ /g;
 				}
 				
-				if(length($splitIndex) > 300){ # too big for output
+				if(length($splitIndex) > 200){ # too big for output
 					print "+ Interesting text ($InMSG) found in \"$mineUrl\" You should manualy review it\n";
 					last;
 				} else {
@@ -969,7 +958,7 @@ sub interesting{ # emails, plugins and such
 
 
 
-sub Ninja{
+sub Ninja{# total number of reqs sent: 6
 	&bannerGrab();
 	sleep(int((rand(3)+2))); # pause for a random amount of time
 	&faviconMD5();
@@ -978,8 +967,6 @@ sub Ninja{
 	sleep(int((rand(3)+2)));
 	my $webServicesTestPagee = $ua->get("http://$Host/");
 	&WScontent($webServicesTestPagee->content);
-	sleep(int((rand(3)+2)));
-	&checkOpenDirListing('/images', '/thumbs', '/imgs');
 }
 
 
@@ -996,7 +983,7 @@ sub Dirbuster{
 	my @parseDirbust = <DirbustDBFile>;
 	
 	foreach my $JustDir (@parseDirbust){
-		&nonSyntDatabaseScan($JustDir,"Directory found") unless $JustDir =~ /^#/;
+		&dataBaseScan($JustDir,'',"Directory found","nonSynt") unless $JustDir =~ /^#/;
 	}
 	undef(@parseDirbust);# unload from RAM
 	close(DirbustDBFile);
