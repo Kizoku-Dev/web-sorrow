@@ -2,7 +2,7 @@
 
 # Copyright 2012 Dakota Simonds
 # A small portion of this software is from Lilith 6.0A and is Sited.
-# sub checkOpenDirListing (modified) Copyright (c) 2003-2005 Michael Hendrickx
+# sub MatchDirIndex (very modified) Copyright (c) 2003-2005 Michael Hendrickx
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #VERSION 1.3.9
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web-Sorrow v1.3.9(beta) Version detection, misconfig, and enumeration scanning tool\n";
+	print "\n+ Web-Sorrow v1.3.9 Version detection, misconfig, and enumeration scanning tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -238,7 +238,7 @@ sub PromtUser{ # Yes or No?
 	return $Opt;
 }
 
-sub analyzeResponse{ # heres were all the smart is...
+sub analyzeResponse{ # heres were most of the smart is...
 	my $CheckResp = shift;
 	my $checkURL = shift;
 	
@@ -302,18 +302,20 @@ sub analyzeResponse{ # heres were all the smart is...
 			if($analHString =~ /Content-MD5:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 			
 			#redircted me?
-			if($analHString =~ /refresh:/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
+			if($analHString =~ /refresh:( |)\w/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
 			
-			if($StatCode =~ /HTTP\/1\.(1|0) 30(1|7)/i){ print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
+			if($analHString =~ /HTTP\/1\.(1|0) 30(1|7)/i){ print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
 			
 			if($analHString =~ /location:/i){
 				my @checkLocation = split(/:/,$analHString);
 				my $lactionEnd = $checkLocation[1];
-				unless($lactionEnd =~ /$checkURL/i){ 
+				unless($lactionEnd =~ /($checkURL|index\.)/i){ 
 					print "+ Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
 				}
 			}
 		}
+		
+		#this part is for extra tests
 		
 		if(defined $interesting or defined $nin or defined $e){
 			#determine content-type
@@ -364,7 +366,7 @@ sub getHeaders{ #simply extract http headers
 	undef(@headersChop);
 }
 
-sub oddHttpHeaders{ # Detect when there an odd HTTP status also other headers
+sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
 		my $StatusToMine = shift;
 		my $StatusFrom = shift;
 		
@@ -391,9 +393,8 @@ sub oddHttpHeaders{ # Detect when there an odd HTTP status also other headers
 		if($StatCode =~ /HTTP\/1\.(0|1) 509/i){
 			print "+ Item \"$StatusFrom\" responded with HTTP status: \"509 Bandwidth Limit Exceeded\" Try -ninja\n"; 
 		}
-
 		
-		
+		&ErrorStrings($StatusToMine, $StatusFrom);
 		
 		undef(@StatMine);
 		$StatusToMine = undef;
@@ -414,13 +415,13 @@ sub dataBaseScan{ # use a database for scanning.
 					unless($JustDirDB =~ /^\//){
 						$JustDirDB = "/" . $JustDirDB unless $databaseContext eq "match";
 					}
-					&makeRequest($JustDirDB, $MSG, $scanMSG); # if i put this code elswere it breaks WFT? vars are being kidnaped!
+					&makeRequest($JustDirDB, $MSG, $scanMSG, $databaseContext); # if i put this code elswere it breaks WFT? vars are being kidnaped!
 				} elsif($databaseContext eq "nonSynt"){
 					$JustDirDB = $DataFromDB;
 					unless($JustDirDB =~ /^\//){
 						$JustDirDB = "/" . $JustDirDB unless $databaseContext eq "match";
 					}
-					&makeRequest($JustDirDB, $MSG, $scanMSG); # if i put this code elswere it breaks WFT? vars are being kidnaped!
+					&makeRequest($JustDirDB, $MSG, $scanMSG, $databaseContext); # if i put this code elswere it breaks WFT? vars are being kidnaped!
 				}
 			}
 		
@@ -432,7 +433,7 @@ sub dataBaseScan{ # use a database for scanning.
 			
 			if($MatchFromCon =~ /$MatchDataFromDB/i){
 				 foreach my $MatchItemFound (@FoundMatchItems){
-					if($MatchItemFound eq $MatchFromCon){
+					if($MatchItemFound eq $MSG){
 						$FoundBefor = 1; # set true
 					}
 				}
@@ -449,13 +450,14 @@ sub makeRequest{
 	my $JustDirDBB = shift;#to lazy to makeup new var names
 	my $MSGG = shift;
 	my $scanMSGG = shift;
+	my $databaseContextt = shift;
 	
 			
 		my $Testreq = $ua->get("http://$Host" . $JustDirDBB);
 			
 		if($Testreq->is_success){
 			print "+ $scanMSGG: \"$JustDirDBB\"";
-			if ($databaseContext eq "Synt"){
+			if ($databaseContextt eq "Synt"){
 				print " - $MSGG\n";
 			} else {
 				print "\n";
@@ -464,7 +466,7 @@ sub makeRequest{
 			&analyzeResponse($Testreq->as_string(), $JustDirDBB);
 		}
 		
-		&oddHttpHeaders($Testreq->as_string(), $JustDirDBB); # can't put in repsonceAnalysis cuz of ->is_success
+		&oddHttpStatus($Testreq->as_string(), $JustDirDBB); # can't put in repsonceAnalysis cuz of ->is_success
 		$Testreq = undef;
 		$JustDirDBB = undef;
 }
@@ -484,6 +486,7 @@ sub Standard{ #some standard stuff
 								'x-meta-originator:',
 								'x-aspnet-version:',
 								'via:',
+								'MIME-Version:',
 								);
 		
 
@@ -827,7 +830,7 @@ sub webServices{
 		close(webServicesDB);
 	}
 	
-	&WScontent($ua->get("http://$Host/")->content);
+	&WScontent($ua->get("http://$Host/")->decoded_content);
 	&faviconMD5(); # i'll just make a new sub
 	&cms();
 }
@@ -841,32 +844,29 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 					'favicon.ico',
 					'Favicon.ico',
 					'images/favicon.ico',
+					'images/Favicon.ico',
 	);
+	
+	open(faviconMD5DB, "+< DB/favicon.db");
+	my @faviconMD5db = <faviconMD5DB>;
 	
 	foreach my $favLocation (@favArry){
 		my $favicon = $ua->get("http://$Host/$favLocation");
 		
 		if($favicon->is_success){
-		
-			#make checksum
 			my $MD5 = Digest::MD5->new;
-			$MD5->add($favicon->content);
-			my $checksum = $MD5->hexdigest;
-			
+			my $checksum = $MD5->add($favicon->content)->hexdigest; #make checksum
 
-			open(faviconMD5DB, "+< DB/favicon.db");
-			my @faviconMD5db = <faviconMD5DB>;
-			
-			
 			foreach my $faviconMD5String (@faviconMD5db){
 				&dataBaseScan($faviconMD5String,$checksum,'Web service Found (favicon.ico)','match');
 			}
 			
-			undef(@faviconMD5db);
-			close(faviconMD5DB);
-			no Digest::MD5;
 		}
 	}
+	
+	close(faviconMD5DB);
+	undef(@faviconMD5db);
+	no Digest::MD5; #unload this module
 }
 
 
@@ -912,13 +912,11 @@ sub interesting{ # emails, plugins and such
 							'<!--#;Server Side Include', #SSI
 							'fb:admins;Facebook fbids',
 							'\/.\/cpanel\/.*?\/images\/logo.gif\?service=mail;google mail',
+							'<\?php;php code',
 							);
 
 	foreach my $checkInterestingSting (@interestingStings){
-		my @InSplit = split(/;/, $checkInterestingSting);
-		$checkInterestingSting = $InSplit[0];
-		my $InMSG = $InSplit[1]; # set msg
-		
+		my ($checkInterestingSting, $InMSG) = split(/;/, $checkInterestingSting);
 		 
 		my @IndexData = split(/>/,$mineShaft); #html
 		
@@ -953,6 +951,42 @@ sub interesting{ # emails, plugins and such
 	
 	}
 	$mineShaft = undef;
+}
+
+
+
+
+sub ErrorStrings{ #failing is the key here
+	my $CheckCont = shift;
+	my $ErrorURI = shift;
+	$FoundBefor = 0;
+
+		my @oddErrStrs = (
+							'mysql_error \(( |).*?( |)\);contains a mySQL error',
+							'The requested URL \/.* was not found on this server\.;contains requested URI (possibly vunerable to XSS)',
+							'<span><H1>Server Error in .* Application.<.*><\/H1>;contains .NET Framework or ASP.NET version info',
+							'Apache\/\d;contains Apache version info NOTE: probably all 404 pages from this server contain this',
+							'nginx\/\d;contains nginx version info NOTE: probably all 404 pages from this server contain this',
+							);
+		
+		foreach my $errorstringMsgandMatch (@oddErrStrs){
+			my ($matchErrorSTR, $reportMessage) = split(/;/, $errorstringMsgandMatch);
+			
+			if($CheckCont =~ /$matchErrorSTR/i){
+				
+				foreach my $MatchItemFound (@FoundMatchItems){
+					if($MatchItemFound eq $reportMessage){
+						$FoundBefor = 1; # set true
+					}
+				}
+				push(@FoundMatchItems, $reportMessage);
+			
+				unless($FoundBefor){
+					print "+ Error page: \"$ErrorURI\" $reportMessage\n";
+				}
+			}
+		}
+	
 }
 
 
