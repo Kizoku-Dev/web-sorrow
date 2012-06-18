@@ -21,7 +21,7 @@
 #Output style inspired by Nikto
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web-Sorrow v1.4.0 Beta Version detection, misconfig, and enumeration scanning tool\n";
+	print "\n+ Web-Sorrow v1.4.0 Beta 2 Version detection, misconfig, and enumeration scanning tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -141,7 +141,6 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		
 		sub startScan{ #triger scans
 			&checkHostAvailibilty() unless defined $nin; # skip if --ninja or --shadow for more stealth
-			&baseErrorRecording() unless defined $nin or defined $shdw;
 			
 			# in order of aproximate finish times
 			if(defined $S)         { &Standard();            }
@@ -486,8 +485,7 @@ sub makeRequest{
 	my $databaseContextt = shift;
 	
 		my $Testreq = $ua->get("http://$Host" . $JustDirDBB);
-			
-		if($Testreq->is_success and &notMatchError($Testreq->decoded_content)){
+		if($Testreq->is_success){
 			print "+ $scanMSGG: \"$JustDirDBB\"";
 			if ($databaseContextt eq "Synt"){
 				print " - $MSGG\n";
@@ -501,29 +499,6 @@ sub makeRequest{
 		&oddHttpStatus($Testreq->as_string(), $JustDirDBB); # can't put in repsonceAnalysis cuz of ->is_success
 		$Testreq = undef;
 		$JustDirDBB = undef;
-}
-
-sub baseErrorRecording{
-	my @ErrorRes;
-	for($i = 0;$i < 15;$i++){
-		my $InvokeError = &genErrorString();
-		push(@ErrorRes, $ua->get("http://$Host/" . $InvokeError)->decoded_content);
-	}
-}
-
-sub notMatchError{
-	my $InquestionPage = shift;
-	my $ret = 1;
-	
-		foreach(@ErrorRes){
-			if($_ eq $InquestionPage){
-				$ret = 0;
-				last;
-			}
-		}
-		
-		return $ret;
-		$InquestionPage = undef;
 }
 
 sub bannerGrab{
@@ -566,24 +541,6 @@ sub bannerGrab{
 	undef(@headers);
 }
 
-sub MatchDirIndex{
-	my $IndexConFind = shift;
-	my $dirr = shift;
-			
-		# Apache
-		if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
-			print "+ Directory indexing found in \"$dirr\"\n";
-		}
-			# Tomcat
-		if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-			print "+ Directory indexing found in \"$dirr\"\n";
-		}
-				# iis
-		if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
-			print "+ Directory indexing found in \"$dirr\"\n";
-		}
-}
-
 #---------------------------------------------------------------------------------------------------------------
 # scanning subs
 
@@ -617,7 +574,7 @@ sub Standard{ #some standard stuff
 		
 		
 
-		my @findDirIndexing =  (
+my @findDirIndexing =  (
 						'/images',
 						'/imgs',
 						'/img',
@@ -643,9 +600,31 @@ sub Standard{ #some standard stuff
 						
 	
 		foreach my $IndexDir (@findDirIndexing){
-			&MatchDirIndex($ua->get("http://$Host" . $IndexDir)->decoded_content, $IndexDir);
+			my $Getind = $ua->get("http://$Host" . $IndexDir);
+			&MatchDirIndex($Getind->decoded_content, $IndexDir);
+			
+			sub MatchDirIndex{
+				my $IndexConFind = shift;
+				my $dirr = shift;
+				
+				# Apache
+				if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
+					print "+ Directory indexing found in \"$dirr\"\n";
+				}
+
+				# Tomcat
+				if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
+					print "+ Directory indexing found in \"$dirr\"\n";
+				}
+
+				# iis
+				if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
+					print "+ Directory indexing found in \"$dirr\"\n";
+				}
+			}
 		}
 		
+		$Getind = undef;
 		undef(@findDirIndexing);
 	
 		
