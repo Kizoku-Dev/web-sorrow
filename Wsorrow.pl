@@ -17,10 +17,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.3.9
+#VERSION 1.4.0
+#Output style inspired by Nikto
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web-Sorrow v1.3.9 Version detection, misconfig, and enumeration scanning tool\n";
+	print "\n+ Web-Sorrow v1.4.0 Beta Version detection, misconfig, and enumeration scanning tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -46,6 +47,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		$ua->conn_cache(LWP::ConnCache->new); # use connection cacheing (faster)
 		$ua->timeout(5); # don't wait longer then 5 secs
 		$ua->default_headers->header('Accept-Encoding' => 'gzip, deflate');# compresses http responces from host (faster)
+		$ua->max_redirect(0);
 		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 
 
@@ -66,6 +68,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			"Sd"      => \my $SubDom, # subdomain
 			"R"       => \my $RangHeader,
 			"Shadow"  => \my $shdw,
+			"Df"      => \my $Df, #default files
+			"d=s"     => \my $Dir,
 		);
 		
 		
@@ -79,11 +83,10 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			$Host =~ s/http(s|):\/\///gi;
 			$Host =~ s/\/.*//g;
 		}
-		
-		unless($Port == 80){
-			$Host = $Host . ":$Port";
+		if(defined $Dir){
+			chop($Dir) if $Dir =~ /\/$/;
+			$Host = $Host . $Dir;
 		}
-		
 		print "+ Host: $Host\n";
 
 		if(defined $ProxyServer){
@@ -94,9 +97,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 
 
-
-
-		#triger scans
+		
 		if(defined $UserA){
 			$ua->agent($UserA);
 		}
@@ -117,37 +118,61 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			}
 		}
 		
-		&checkHostAvailibilty() unless defined $nin; # skip if --ninja or --shadow for more stealth
-		my $resAnalIndex = $ua->get("http://$Host/");
+		if($Host =~ ';'){
+			my @Hosts = split(/;/, $Host); 
+
+			foreach(@Hosts){
+				$Host = $_;
+				unless($Port == 80){
+					$Host = $Host . ":$Port";
+				}
+				
+				print "-" x 70 . "\n+ Scanning Host: $Host\n";
+				print "-" x 70 . "\n";
+				&startScan();
+			}
+		} else {
+			unless($Port == 80){
+				$Host = $Host . ":$Port";
+			}
+			&startScan(); 
+		}
 		
-		# in order of aproximate finish times
-		if(defined $S){ &Standard(); }
-		if(defined $nin){ &Ninja(); }
-		if(defined $auth){ &auth(); }
-		if(defined $cmsPlugins){ &cmsPlugins(); }
-		if(defined $Ws){ &webServices(); }
-		if(defined $SubDom){ &SubDomainBF(); }
-		if(defined $Fd){ &FilesAndDirsGoodies(); }
-		if(defined $DirB){ &Dirbuster(); }
-		if(defined $e){ &runAll(); }
 		
-		
-		
-		sub runAll{
-			&Standard();
-			&auth();
-			&webServices();
-			&SubDomainBF();
-			&cmsPlugins();
-			&FilesAndDirsGoodies();
-			&Dirbuster();
+		sub startScan{ #triger scans
+			&checkHostAvailibilty() unless defined $nin; # skip if --ninja or --shadow for more stealth
+			&baseErrorRecording() unless defined $nin or defined $shdw;
+			
+			# in order of aproximate finish times
+			if(defined $S)         { &Standard();            }
+			if(defined $nin)       { &Ninja();               }
+			if(defined $auth)      { &auth();                }
+			if(defined $Df)        { &defaultFiles();        }
+			if(defined $cmsPlugins){ &cmsPlugins();          }
+			if(defined $Ws)        { &webServices();         }
+			if(defined $SubDom)    { &SubDomainBF();         }
+			if(defined $Fd)        { &FilesAndDirsGoodies(); }
+			if(defined $DirB)      { &Dirbuster();           }
+			if(defined $e)         { &runAll();              }
+			
+			
+			
+			sub runAll{
+				&Standard();
+				&auth();
+				&defaultFiles()
+				&webServices();
+				&SubDomainBF();
+				&cmsPlugins();
+				&FilesAndDirsGoodies();
+				&Dirbuster();
+			}
 		}
 
 
 
-
 		print "-" x 70 . "\n";
-		print "+ done :'(  -  Finsh Time: " . localtime;
+		print "+ done :'(  -  Finsh Time: " . localtime . "\n";
 
 
 
@@ -170,7 +195,7 @@ Remember to check for updates http://web-sorrow.googlecode.com/
 Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)]
 
 HOST OPTIONS:
-    -host [host]     -- Defines host to use.
+    -host [host]     -- Defines host to scan or a list separated by semicolons
     -port [port num] -- Defines port number to use (Default is 80)
     -proxy [ip:port] -- Use an HTTP proxy server
 
@@ -189,6 +214,7 @@ SCANS:
     -Ws      --  Scan for Web Services on host such as: cms version info, 
                  blogging services, favicon fingerprints, and hosting provider
     -Db      --  BruteForce Directories with the big dirbuster Database
+    -Df      --  Scan for default Apache files
     -e       --  Everything. run all scans
 
 
@@ -205,11 +231,13 @@ OTHER:
                  exists or not. like in -auth or -Fd
     -Shadow  --  Request pages from Google cache instead of from the Host.
                  (mostly for just -I otherwise it's unreliable)
+    -d [dir] --  Only scan within this directory
 
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
     perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "script w/ the munchies"
+    perl Wsorrow.pl -host thediamondclub.com -d /wordpress -Cp wp
     perl Wsorrow.pl -host 66.11.227.35 -port 8080 -proxy 129.255.1.17:3128 -S -Ws -I 
 };
 
@@ -290,7 +318,10 @@ sub analyzeResponse{ # heres were most of the smart is...
 				}
 			}
 		}
-		foreach my $analHString (@StatMine){
+		
+		my @analHeaders = &getHeaders($CheckResp); 
+		
+		foreach my $analHString (@analHeaders){
 			study $analHString;
 			#the page is empty?
 			if($analHString =~ /Content-Length: (0|1|2|3)$/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
@@ -304,7 +335,7 @@ sub analyzeResponse{ # heres were most of the smart is...
 			#redircted me?
 			if($analHString =~ /refresh:( |)\w/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
 			
-			if($analHString =~ /HTTP\/1\.(1|0) 30(1|7)/i){ print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
+			if($analHString =~ /HTTP\/1\.(1|0) 30\d/i){ print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
 			
 			if($analHString =~ /location:/i){
 				my @checkLocation = split(/:/,$analHString);
@@ -336,6 +367,8 @@ sub analyzeResponse{ # heres were most of the smart is...
 		if(defined $Ws){
 			&WScontent($CheckResp);
 		}
+		
+		&bannerGrab($CheckResp);
 		
 		$CheckResp = undef;
 }
@@ -417,7 +450,7 @@ sub dataBaseScan{ # use a database for scanning.
 					}
 					&makeRequest($JustDirDB, $MSG, $scanMSG, $databaseContext); # if i put this code elswere it breaks WFT? vars are being kidnaped!
 				} elsif($databaseContext eq "nonSynt"){
-					$JustDirDB = $DataFromDB;
+					my $JustDirDB = $DataFromDB;
 					unless($JustDirDB =~ /^\//){
 						$JustDirDB = "/" . $JustDirDB unless $databaseContext eq "match";
 					}
@@ -452,10 +485,9 @@ sub makeRequest{
 	my $scanMSGG = shift;
 	my $databaseContextt = shift;
 	
-			
 		my $Testreq = $ua->get("http://$Host" . $JustDirDBB);
 			
-		if($Testreq->is_success){
+		if($Testreq->is_success and &notMatchError($Testreq->decoded_content)){
 			print "+ $scanMSGG: \"$JustDirDBB\"";
 			if ($databaseContextt eq "Synt"){
 				print " - $MSGG\n";
@@ -463,7 +495,7 @@ sub makeRequest{
 				print "\n";
 			}
 				
-			&analyzeResponse($Testreq->as_string(), $JustDirDBB);
+			&analyzeResponse($Testreq->as_string , $JustDirDBB);
 		}
 		
 		&oddHttpStatus($Testreq->as_string(), $JustDirDBB); # can't put in repsonceAnalysis cuz of ->is_success
@@ -471,49 +503,99 @@ sub makeRequest{
 		$JustDirDBB = undef;
 }
 
+sub baseErrorRecording{
+	my @ErrorRes;
+	for($i = 0;$i < 15;$i++){
+		my $InvokeError = &genErrorString();
+		push(@ErrorRes, $ua->get("http://$Host/" . $InvokeError)->decoded_content);
+	}
+}
+
+sub notMatchError{
+	my $InquestionPage = shift;
+	my $ret = 1;
+	
+		foreach(@ErrorRes){
+			if($_ eq $InquestionPage){
+				$ret = 0;
+				last;
+			}
+		}
+		
+		return $ret;
+		$InquestionPage = undef;
+}
+
+sub bannerGrab{
+	my $resP = shift;
+	$FoundBefor = 0;
+
+	my @checkHeaders = (
+						'server:',
+						'x-powered-by:',
+						'x-meta-generator:',
+						'x-meta-framework:',
+						'x-meta-originator:',
+						'x-aspnet-version:',
+						'via:',
+						'MIME-Version:',
+						);
+	
+		
+	my @headers = &getHeaders($resP);
+		
+	foreach my $HString (@headers){
+		foreach my $checkSingleHeader (@checkHeaders){
+		
+
+				if($HString =~ /$checkSingleHeader/i){
+					foreach my $MatchItemFound (@FoundMatchItems){
+						if($MatchItemFound eq $HString){
+							$FoundBefor = 1; # set true
+						}
+					}
+					push(@FoundMatchItems, $HString);
+				
+					unless($FoundBefor){ #prevents double output
+						print "+ Server Info in Header: \"$HString\"\n";
+					}
+			}
+		}
+	}
+	$resP = undef;
+	undef(@headers);
+}
+
+sub MatchDirIndex{
+	my $IndexConFind = shift;
+	my $dirr = shift;
+			
+		# Apache
+		if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
+			print "+ Directory indexing found in \"$dirr\"\n";
+		}
+			# Tomcat
+		if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
+			print "+ Directory indexing found in \"$dirr\"\n";
+		}
+				# iis
+		if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
+			print "+ Directory indexing found in \"$dirr\"\n";
+		}
+}
+
 #---------------------------------------------------------------------------------------------------------------
 # scanning subs
 
 
 sub Standard{ #some standard stuff
-		&bannerGrab();
-		sub bannerGrab{
-			my @checkHeaders = (
-								'server:',
-								'x-powered-by:',
-								'x-meta-generator:',
-								'x-meta-framework:',
-								'x-meta-originator:',
-								'x-aspnet-version:',
-								'via:',
-								'MIME-Version:',
-								);
-		
-
-			my $resP = $ua->get("http://$Host/");
-			&analyzeResponse($resP->as_string() ,"/");
-			
-			my @headers = &getHeaders($resP->as_string());
-			
-			foreach my $HString (@headers){
-				foreach my $checkSingleHeader (@checkHeaders){
-					if($HString =~ /$checkSingleHeader/i){
-						print "+ Server Info in Header: \"$HString\"\n";
-					}
-				}
-			}
-			$resP = undef;
-			undef(@headers);
-		}
-		
+		&bannerGrab($ua->get("http://$Host/")->as_string);
 		
 		#robots.txt
 		&Robots();
 		sub Robots{
 			my $roboTXT = $ua->get("http://$Host/robots.txt");
 			unless($roboTXT->is_error){
-				&analyzeResponse($roboTXT->as_string() ,"/robots.txt");
-				
 				my $Opt = &PromtUser("+ robots.txt found! This could be interesting!\n+ would you like me to display it? (y/n) ? ");
 
 				if($Opt =~ /y/i){
@@ -522,7 +604,7 @@ sub Standard{ #some standard stuff
 					while ($roboContent =~ /(\n\n|\t)/) {	$roboContent =~ s/(\n\n|\t)/\n/g;	} # cleaner. some robots have way to much white space
 					chomp $roboContent; #prevents duble newlines
 					
-					if($roboContent =~ /(<!DOCTYPE|<html|<body)/i){
+					if($roboContent =~ /(<!DOCTYPE|<html)/i){
 						print "+ robots.txt contains HTML. canceling display\n";
 					} else {
 						print $roboContent . "\n";
@@ -561,46 +643,22 @@ sub Standard{ #some standard stuff
 						
 	
 		foreach my $IndexDir (@findDirIndexing){
-			my $Getind = $ua->get("http://$Host" . $IndexDir);
-			&MatchDirIndex($Getind->decoded_content, $IndexDir);
-			
-			sub MatchDirIndex {
-				my $IndexConFind = shift;
-				my $dirr = shift;
-				
-				# Apache
-				if($IndexConFind =~ /<H1>Index of \/.*<\/H1>/i){
-					print "+ Directory indexing found in \"$dirr\"\n";
-				}
-
-				# Tomcat
-				if($IndexConFind =~ /<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ /<body><h1>Directory Listing For \/.*<\/h1>/i){
-					print "+ Directory indexing found in \"$dirr\"\n";
-				}
-
-				# iis
-				if($IndexConFind =~ /<body><H1>$Host - $dirr/i){
-					print "+ Directory indexing found in \"$dirr\"\n";
-				}
-			}
+			&MatchDirIndex($ua->get("http://$Host" . $IndexDir)->decoded_content, $IndexDir);
 		}
 		
-		$Getind = undef;
 		undef(@findDirIndexing);
-	
 	
 		
 		# laguage checks
 		my $LangReq = $ua->get("http://$Host/");
 		my @langSpaceSplit = split(/ / ,$LangReq->decoded_content);
 		
-		my $langString = 'lang=';
 		my @langGate;
 		
 		foreach my $lineIDK (@langSpaceSplit){
-			if($lineIDK =~ /$langString('|").*?('|")/i){
-				while($lineIDK =~ /(\t|\n)/){  $lineIDK =~ s/(\t|\n)//; } #make pretty
-				if($lineIDK =~ /(<|>|head)/i){ $lineIDK =~ s/(<.*?|>.*?|head)//g; } #prevent html from sliping in
+			if($lineIDK =~ /lang=('|").*?('|")/i){
+				$lineIDK =~ s/(\t|\n)//g; #make pretty
+				$lineIDK =~ s/(<.*|>.*)//g; #prevent html from sliping in
 				
 				unless($lineIDK =~ /lang=('|")('|")/){ # empty?
 					print "+ Page Laguage found: $lineIDK\n";
@@ -608,11 +666,11 @@ sub Standard{ #some standard stuff
 				}
 			}
 		}
-		
+		$LangReq = undef;
 		
 		# Some servers just give you a 200 with every req. lets see
 		my @badexts;
-		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.cfm','.txt','.larywall');
+		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall');
 		foreach my $Extention (@webExtentions){
 			my $testErrorString = &genErrorString();
 			my $check200 = $ua->get("http://$Host/$testErrorString" . $Extention);
@@ -624,7 +682,7 @@ sub Standard{ #some standard stuff
 		if(defined $badexts[0]){ # if the page contains multi error just put em into the same string
 			print "+ INTENTIONALLY bad requests sent with the file Extention(s) @badexts responded with odd status codes. any results from this server with those files extention(s) may be void\n";
 		}
-	
+		$check200 = undef;
 		undef(@badexts);
 		
 
@@ -634,7 +692,7 @@ sub Standard{ #some standard stuff
 		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027"); # set back to regualr mozilla
 		my $regularPage = $ua->get("http://$Host/");
 		
-		unless($mobilePage->content() eq $regularPage->content()){
+		unless($mobilePage->decoded_content() eq $regularPage->decoded_content()){
 			print "+ Index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
 		}
 		$mobilePage = undef; $regularPage = undef;
@@ -642,6 +700,7 @@ sub Standard{ #some standard stuff
 		if(defined $UserA){ # sets back to defined useragent
 			$ua->agent($UserA);
 		}
+		
 		
 		# is ssl stuff
 		$ua->ssl_opts(verify_hostname => 1);
@@ -668,6 +727,7 @@ sub Standard{ #some standard stuff
 		$sslreq = undef;
 		$ua->ssl_opts(verify_hostname => 0);
 
+		
 		# common sensitive shtuff
 		open(FilesAndDirsDBFileS, "+< DB/small-tests.db");
 		my @parseFilesAndDirsDBS = <FilesAndDirsDBFileS>;
@@ -676,6 +736,7 @@ sub Standard{ #some standard stuff
 		}
 		close(FilesAndDirsDBFileS);
 		undef(@parseFilesAndDirsDBS);
+		
 		
 		#Apache account name
 		my @apcheUserNames = (
@@ -702,6 +763,7 @@ sub Standard{ #some standard stuff
 		}
 		$ApcheUseNmTest = undef;
 		
+		
 		#thumbs.db
 		my @imageDirs = (
 						'/images/',
@@ -722,13 +784,29 @@ sub Standard{ #some standard stuff
 				$getThumbs = $ua->get("http://$Host".$imageDir.$CapTumbs);
 			
 				if($getThumbs->is_success){
-					print "+ thumbs.db found. This suggests the host is running Windows\n";
+					print "+ $CapTumbs found. This suggests the host is running Windows\n";
+					&analyzeResponse($getThumbs->as_string() ,$CapTumbs);
 					goto doneThumbs;
 				}
 			}
 		}
 		doneThumbs:
 		undef($getThumbs);
+}
+
+
+
+
+sub defaultFiles{
+	open(defaultFilesDB, "+< DB/defaultFiles.db");
+	my @parsedefaultFilesDB = <defaultFilesDB>;
+	
+	foreach my $defaultFilesDirAndMsg (@parsedefaultFilesDB){
+		&dataBaseScan($defaultFilesDirAndMsg,'','Default File Found','Synt');
+	}
+
+	undef(@parsedefaultFilesDB);
+	close(defaultFilesDB);
 }
 
 
@@ -902,6 +980,7 @@ sub interesting{ # emails, plugins and such
 							'\/cgi-bin;CGI Dir',
 							'\/wp-content\/plugins\/;WordPress Plugin',
 							'\/wp-includes\/;Wordpress include',
+							'\/wp-content\/themes\/;Wordpress theme',
 							'\/components\/;Possible Drupal Plugin',
 							'\/modules\/;Drupal Plugin',
 							'\/templates\/;template',
@@ -913,6 +992,7 @@ sub interesting{ # emails, plugins and such
 							'fb:admins;Facebook fbids',
 							'\/.\/cpanel\/.*?\/images\/logo.gif\?service=mail;google mail',
 							'<\?php;php code',
+							'\/_layouts;Sharepoint webapp',
 							);
 
 	foreach my $checkInterestingSting (@interestingStings){
@@ -959,14 +1039,14 @@ sub interesting{ # emails, plugins and such
 sub ErrorStrings{ #failing is the key here
 	my $CheckCont = shift;
 	my $ErrorURI = shift;
-	$FoundBefor = 0;
+	my $FoundBefor = 0;
 
 		my @oddErrStrs = (
 							'mysql_error \(( |).*?( |)\);contains a mySQL error',
-							'The requested URL \/.* was not found on this server\.;contains requested URI (possibly vunerable to XSS)',
-							'<span><H1>Server Error in .* Application.<.*><\/H1>;contains .NET Framework or ASP.NET version info',
-							'Apache\/\d;contains Apache version info NOTE: probably all 404 pages from this server contain this',
-							'nginx\/\d;contains nginx version info NOTE: probably all 404 pages from this server contain this',
+							'The requested URL \/.* was not found on this server;contains requested URI (possibly vunerable to XSS)',
+							'<span><H1>Server Error in .* Application<.*><\/H1>;contains .NET Framework or ASP.NET version info',
+							'<hr>.*Apache\/;contains Apache version info NOTE: probably all 404 pages from this server contain this',
+							'<hr>.*nginx\/;contains nginx version info NOTE: probably all 404 pages from this server contain this',
 							);
 		
 		foreach my $errorstringMsgandMatch (@oddErrStrs){
@@ -993,14 +1073,14 @@ sub ErrorStrings{ #failing is the key here
 
 
 sub Ninja{# total number of reqs sent: 6
-	&bannerGrab();
+	my $ninjaTestPagee = $ua->get("http://$Host/");
+	&bannerGrab($ninjaTestPagee->as_string);
 	sleep(int((rand(3)+2))); # pause for a random amount of time
 	&faviconMD5();
 	sleep(int((rand(3)+2)));
 	&Robots();
 	sleep(int((rand(3)+2)));
-	my $webServicesTestPagee = $ua->get("http://$Host/");
-	&WScontent($webServicesTestPagee->content);
+	&WScontent($ninjaTestPagee->decoded_content);
 }
 
 
