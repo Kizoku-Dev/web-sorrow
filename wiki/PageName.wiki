@@ -3,14 +3,14 @@ common issues
 
 = Introduction =
 Make sure you have the LATEST perl modules for Web-Sorrow
-
-LWP::UserAgent
-LWP::ConnCache
-HTTP::Request
-HTTP::Response
-Getopt::Long
-Socket
-Digest::MD5
+<BR/>
+LWP::UserAgent<BR/>
+LWP::ConnCache<BR/>
+HTTP::Request<BR/>
+HTTP::Response<BR/>
+Getopt::Long<BR/>
+Socket<BR/>
+Digest::MD5<BR/>
 
 = Details =
 these are pretty common modules. as of v1.4.0 I've included 2 scripts (one for win one for Linux) to automatically install install or update all of them  
