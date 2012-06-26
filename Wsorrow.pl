@@ -17,11 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.4.0
-#Output style inspired by Nikto
+#VERSION 1.4.1
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n+ Web-Sorrow v1.4.0 Version detection, misconfig, and enumeration scanning tool\n";
+	print "\n[+] Web-Sorrow v1.4.1 remote enumeration security tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -47,7 +46,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		$ua->timeout(5); # don't wait longer then 5 secs
 		$ua->default_headers->header('Accept-Encoding' => 'gzip, deflate');# compresses http responces from host (faster)
 		$ua->max_redirect(1); # if set to 0 it messes up directory indexing
-		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
+		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.3) Gecko/20010801");
 
 
 		GetOptions(
@@ -69,6 +68,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			"Shadow"  => \my $shdw,
 			"Df"      => \my $Df, #default files
 			"d=s"     => \my $Dir,
+			"np"      => \my $noPasive,
 		);
 		
 		
@@ -86,15 +86,15 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		
 
 		foreach ( split(/;/, $Host) ){ # if imput is more than one host do banner for each
-			print "+ Host: $_\n";
+			print "[+] Host: $_\n";
 		}
 		
 			
 		if(defined $ProxyServer) {
-			print "+ Proxy: $ProxyServer\n";
+			print "[+] Proxy: $ProxyServer\n";
 		}
-		print "+ Start Time: " . localtime() . "\n";
-		print "-" x 70 . "\n";
+		print "[+] Start Time: " . localtime() . "\n";
+		print "=" x 70 . "\n";
 
 
 
@@ -104,23 +104,23 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		}
 
 		if(defined $ProxyServer) {
-			proxy(); # always make sure to put this first, lest we send un-proxied packets
+			$ua->proxy('http',"http://$ProxyServer"); # always make sure to put this first, lest we send un-proxied packets
 		}
 		if(defined $RangHeader) {
-			print "+ -R is experimental\n";
+			print "[-] -R is experimental\n";
 			$ua->default_headers->header('Range' => 'bytes 0-1');
 		}
 		if(defined $shdw) {
-			print "+ The cached pages MAYBE out of date so the results maynot be perfect\n";
+			print "[-] The cached pages MAYBE out of date so the results maynot be perfect\n";
 			$Host = ShadowScan();
 			if(defined $SubDom) {
-				print "+ -Sd does not work with -Shadow... disabling\n";
+				print "[x] -Sd does not work with -Shadow... disabling\n";
 				undef($SubDom);
 			}
 		}
 		
 		if(defined $Dir) {
-			print "+ All reported items are within $Dir\n";
+			print "[+] All reported items are within $Dir\n";
 		}
 		
 		if($Host =~ ';'){
@@ -132,8 +132,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 					$Host = $Host . ":$Port";
 				}
 				
-				print "-" x 70 . "\n+ Scanning Host: $Host\n";
-				print "-" x 70 . "\n";
+				print "=" x 70 . "\n[+] Scanning Host: $Host\n";
+				print "=" x 70 . "\n";
 				startScan();
 			}
 		} else {
@@ -148,7 +148,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			unless(defined $nin) { checkHostAvailibilty(); } # skip if --ninja or --shadow for more stealth
 			
 			if(defined $Dir) {
-				chop($Dir) if $Dir =~ /\/$/;
+				chop($Dir) if $Dir =~ m/\/$/;
 				$Dir = "/" . $Dir unless $Dir =~ m/^\//;
 				$Host = $Host . $Dir;
 			}
@@ -181,8 +181,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 
 
-		print "-" x 70 . "\n";
-		print "+ done :'(  -  Finsh Time: " . localtime . "\n";
+		print "=" x 70 . "\n";
+		print "[+] done :'(  -  Finsh Time: " . localtime . "\n";
 
 
 
@@ -191,8 +191,6 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 #----------------------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------------------------------------
-
-
 
 
 # non scanning subs for clean code and speed 'n stuff
@@ -219,7 +217,7 @@ SCANS:
     -auth    --  Scan for login pages, admin consoles, and email webapps
     -Cp [dp | jm | wp | all] -- scan for cms plugins.
                  dp = drupal, jm = joomla, wp = wordpress 
-    -Fd      --  Scan for common interesting files and dirs
+    -Fd      --  Scan for common interesting files and dirs (Bruteforce)
     -Sd      --  BruteForce Subdomains (host given must be a domain. Not an IP)
     -Ws      --  Scan for Web Services on host such as: cms version info, 
                  blogging services, favicon fingerprints, and hosting provider
@@ -235,13 +233,16 @@ OTHER:
                  peices from other scans (it is not recomended to use with any
                  other scans if you want to be stealthy. See readme.txt)
     -ua [ua] --  Useragent to use. put it in quotes. (default is firefox linux)
-    -R       --  Only request HTTP headers. This is much faster but some
-                 features and capabilities may not work with this option.
-                 But it's perfect when you only want to know if something
-                 exists or not. like in -auth or -Fd
+    -R       --  Only request HTTP headers (ranges and head reqs).
+                 This is much faster but some features and capabilities
+                 may not work with this option. But it's perfect when
+                 you only want to know if something exists or not.
+                 like in -auth or -Fd
     -Shadow  --  Request pages from Google cache instead of from the Host.
                  (mostly for just -I otherwise it's unreliable)
     -d [dir] --  Only scan within this directory
+    -np      --  Don't do passive tests: banner grabbing, Dir indexing,
+                 Odd http status, Error pages/strings (be less verbose)
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
@@ -258,12 +259,7 @@ sub checkHostAvailibilty{
 	analyzeResponse($CheckHost2->decoded_content, "/");
 	
 	if($CheckHost2->is_error and $CheckHost1->is_error) {
-		print "Host: $Host maybe offline or unavailble!\n";
-		PromtUser('Do you wish to continue anyway (y/n) ? ');
-		if($Opt =~ /n/i){
-			print "You should try hdt.pl for more conclusive host discovery\nExiting. Good Bye!\n";
-			exit();
-		}
+		print "[-] Host: $Host appears to be offline or unavailble. Continuing...\n";
 	}
 }
 
@@ -283,8 +279,9 @@ sub analyzeResponse{ # heres were most of the smart is...
 			$checkURL = "/" . $checkURL; # makes for good output
 		}
 		
+		
+		my $FoundErrors = 0;
 		#False Positive checking based on page content
-		my @ErrorStringsFound;
 		my @PosibleErrorStrings = (
 									'404 error',
 									'404 page',
@@ -292,8 +289,9 @@ sub analyzeResponse{ # heres were most of the smart is...
 									'not found',
 									'cannot be found',
 									'could not find',
-									'can’t find',
+									'can\'t find',
 									'cannot found', # incorrect english but i'v seen it before
+									'could not be found',
 									'bad request',
 									'server error',
 									'temporarily unavailable',
@@ -307,13 +305,16 @@ sub analyzeResponse{ # heres were most of the smart is...
 									'nothing found',
 									'just calm down. 420',
 		);
+		
+		my @ErrorStringsFound;
 		foreach my $errorCheck (@PosibleErrorStrings){
 			if($CheckResp =~ m/$errorCheck/i) {
 				push(@ErrorStringsFound, "\"$errorCheck\" ");
+				$FoundErrors = 1;
 			}
 		}
-		if(defined $ErrorStringsFound[0]) { # if the page contains multi error just put em into the same string
-			print "+ Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
+		if($FoundErrors) { # if the page contains multi error just put em into the same string
+			print "[-] Item \"$checkURL\" Contains text(s): @ErrorStringsFound MAYBE a False Positive!\n";
 		}
 		undef(@ErrorStringsFound); # emty array. saves the above if for the next go around
 			
@@ -323,7 +324,7 @@ sub analyzeResponse{ # heres were most of the smart is...
 			my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
 			foreach my $loginCheck (@PosibleLoginPageStrings){
 				if($CheckResp =~ m/<title>.*$loginCheck.*<\/title>/i) {
-					print "+ Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
+					print "[+] Item \"$checkURL\" Contains text: \"$loginCheck\" in the title MAYBE a Login page\n";
 				}
 			}
 		}
@@ -334,51 +335,53 @@ sub analyzeResponse{ # heres were most of the smart is...
 		foreach my $analHString (@analHeaders){
 			study $analHString;
 			#the page is empty?
-			if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
+			if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i){  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
 			
 			#auth page checking
-			if($analHString =~ m/www-authenticate:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
+			if($analHString =~ m/www-authenticate:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 			
 			#a hash?
-			if($analHString =~ m/Content-MD5:/i){  print "+ Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
+			if($analHString =~ m/Content-MD5:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 			
 			#redircted me?
-			if($analHString =~ m/refresh:( |)\w/i){  print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
+			if($analHString =~ m/refresh:( |)\w/i){  print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
 			
-			if($analHString =~ m/HTTP\/1\.(1|0) 30\d/i){ print "+ Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
+			if($analHString =~ m/HTTP\/1\.(1|0) 30(1|2|7)/i){ print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
 				
 			if($analHString =~ m/location:/i){
 				my @checkLocation = split(/:/,$analHString);
 				my $lactionEnd = $checkLocation[1];
 				unless($lactionEnd =~ m/($checkURL|index\.)/i){ 
-					print "+ Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
+					print "[-] Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
 				}
 			}
 		}
 		
-		#this part is for extra tests
+		#this part is for extra (passive) tests
 		
-		if(defined $interesting or defined $nin or defined $e) {
-			#determine content-type
-			my $respContentType;
-			my @indexHeaders = getHeaders($CheckResp);
-		
-			foreach my $indexHeader (@indexHeaders){
-				if($indexHeader =~ m/content-type:/i) {
-					$respContentType = $indexHeader;
+		unless(defined $noPasive) {
+			if(defined $interesting or defined $nin or defined $e) {
+				#determine content-type
+				my $respContentType;
+				my @indexHeaders = getHeaders($CheckResp);
+			
+				foreach my $indexHeader (@indexHeaders){
+					if($indexHeader =~ m/content-type:/i) {
+						$respContentType = $indexHeader;
+					}
 				}
+				undef(@indexHeaders);
+				interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
 			}
-			undef(@indexHeaders);
-			interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
-		}
 
-		MatchDirIndex($CheckResp,$checkURL);
-		
-		if(defined $Ws) {
-			WScontent($CheckResp);
+			MatchDirIndex($CheckResp,$checkURL);
+			
+			if(defined $Ws) {
+				WScontent($CheckResp);
+			}
+			
+			bannerGrab($CheckResp);
 		}
-		
-		bannerGrab($CheckResp);
 		
 		$CheckResp = undef;
 }
@@ -393,21 +396,16 @@ sub genErrorString{
 	return $errorStringGGG;
 }
 
-sub proxy{ # simple!!! i loves it
-	$ua->proxy('http',"http://$ProxyServer");
-}
-
 sub getHeaders{ #simply extract http headers
 	my $rawFullPage = shift;
 	
 		my @headersChop = split("\n\n", $rawFullPage);
 		my @HeadersRetu = split("\n", $headersChop[0]);
 		
-		return(@HeadersRetu);
-		
 		undef($rawFullPage);
-		undef(@HeadersRetu);
 		undef(@headersChop);
+		
+		return(@HeadersRetu);
 }
 
 sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
@@ -423,19 +421,19 @@ sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
 		study $StatCode;
 		
 		if($StatCode =~ m/HTTP\/1\.(0|1) 401/i) {
-			print "+ Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n";
+			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n";
 		}
 		if($StatCode =~ m/HTTP\/1\.(0|1) 403/i) {
-			print "+ Item \"$StatusFrom\" responded with HTTP status: \"403 Forbiden\" (exists but denied access)\n"; 
+			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"403 Forbiden\" (exists but denied access)\n"; 
 		}
 		if($StatCode =~ m/HTTP\/1\.(0|1) 424/i) {
-			print "+ Item \"$StatusFrom\" responded with HTTP status: \"424 Locked\"\n"; 
+			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"424 Locked\"\n"; 
 		}
 		if($StatCode =~ m/HTTP\/1\.(0|1) 429/i) {
-			print "+ Item \"$StatusFrom\" responded with HTTP status: \"429 Too Many Requests\" Try -ninja\n"; 
+			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"429 Too Many Requests\" Try -ninja\n"; 
 		}
 		if($StatCode =~ m/HTTP\/1\.(0|1) 509/i) {
-			print "+ Item \"$StatusFrom\" responded with HTTP status: \"509 Bandwidth Limit Exceeded\" Try -ninja\n"; 
+			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"509 Bandwidth Limit Exceeded\" Try -ninja\n"; 
 		}
 		
 		ErrorStrings($StatusToMine, $StatusFrom);
@@ -484,7 +482,7 @@ sub dataBaseScan{ # use a database for scanning.
 				push(@FoundMatchItems, $MSG);
 			
 				unless($FoundBefor) { #prevents double output
-					print "+ $scanMSG: $MSG\n";
+					print "[+] $scanMSG: $MSG\n";
 				}
 			}
 		}
@@ -496,9 +494,13 @@ sub makeRequest{
 	my $scanMSGG = shift;
 	my $databaseContextt = shift;
 	
-		my $Testreq = $ua->get("http://$Host" . $JustDirDBB);
+		my $Testreq = $ua->get("http://$Host" . $JustDirDBB) unless defined $RangHeader;
+		if(defined $RangHeader) {
+			$Testreq = $ua->head("http://$Host" . $JustDirDBB)
+		}
+		
 		if($Testreq->is_success) {
-			print "+ $scanMSGG: \"$JustDirDBB\"";
+			print "[+] $scanMSGG: \"$JustDirDBB\"";
 			if($databaseContextt eq "Synt") {
 				print " - $MSGG\n";
 			} else {
@@ -508,7 +510,7 @@ sub makeRequest{
 			analyzeResponse($Testreq->as_string , $JustDirDBB);
 		}
 		
-		oddHttpStatus($Testreq->as_string(), $JustDirDBB); # can't put in repsonceAnalysis cuz of ->is_success
+		oddHttpStatus($Testreq->as_string(), $JustDirDBB) unless defined $noPasive ; # can't put in repsonceAnalysis cuz of ->is_success
 		$Testreq = undef;
 		$JustDirDBB = undef;
 }
@@ -543,7 +545,7 @@ sub bannerGrab{
 						push(@FoundMatchItems, $HString);
 					
 						unless($FoundBefor) { #prevents double output
-							print "+ Server Info in Header: \"$HString\"\n";
+							print "[+] Server Info in Header: \"$HString\"\n";
 						}
 				}
 			}
@@ -558,33 +560,33 @@ sub MatchDirIndex{
 
 		# Apache
 		if($IndexConFind =~ m/<H1>Index of \/.*<\/H1>/i) {
-			print "+ Directory indexing found in \"$dirr\"\n";
+			print "[+] Directory indexing found in \"$dirr\"\n";
 		}
 
 		# Tomcat
 		if($IndexConFind =~ m/<title>Directory Listing For \/.*<\/title>/i and $IndexConFind =~ m/<body><h1>Directory Listing For \/.*<\/h1>/i) {
-			print "+ Directory indexing found in \"$dirr\"\n";
+			print "[+] Directory indexing found in \"$dirr\"\n";
 		}
 
 		# iis
 		if($IndexConFind =~ m/<body><H1>$Host - $dirr/i) {
-			print "+ Directory indexing found in \"$dirr\"\n";
+			print "[+] Directory indexing found in \"$dirr\"\n";
 		}
 }
 
 sub Robots{
 	my $roboTXT = $ua->get("http://$Host/robots.txt");
 	unless($roboTXT->is_error) {
-		my $Opt = PromtUser("+ robots.txt found! This could be interesting!\n+ would you like me to display it? (y/n) ? ");
+		my $Opt = PromtUser("[+] robots.txt found! This could be interesting!\n[?] would you like me to display it? (y/n) ? ");
 
 		if($Opt =~ /y/i) {
-			print "+ robots.txt Contents: \n";
+			print "[+] robots.txt Contents: \n";
 			my $roboContent = $roboTXT->decoded_content;
 			while ($roboContent =~ /(\n\n|\t)/) {	$roboContent =~ s/(\n\n|\t)/\n/g;	} # cleaner. some robots have way to much white space
 			chomp $roboContent; #prevents duble newlines
 				
 			if($roboContent =~ /(<!DOCTYPE|<html)/i) {
-				print "+ robots.txt contains HTML. canceling display\n";
+				print "[x] robots.txt contains HTML. canceling display\n";
 			} else {
 				print $roboContent . "\n";
 			}
@@ -650,7 +652,7 @@ sub Standard{ #some standard stuff
 				$lineIDK =~ s/(<.*|>.*)//g; #prevent html from sliping in
 				
 				unless($lineIDK =~ /lang=('|")('|")/) { # empty?
-					print "+ Page Laguage found: $lineIDK\n";
+					print "[+] Page Laguage found: $lineIDK\n";
 					last; # somtimes pages have like 4 or 5 so just find one
 				}
 			}
@@ -669,7 +671,7 @@ sub Standard{ #some standard stuff
 			}
 		}
 		if(defined $badexts[0]) { # if the page contains multi error just put em into the same string
-			print "+ INTENTIONALLY bad requests sent with the file Extention(s) @badexts responded with odd status codes. any results from this server with those files extention(s) may be void\n";
+			print "[-] INTENTIONALLY bad requests sent with the file Extention(s) @badexts responded with odd status codes. any results from this server with those files extention(s) may be void\n";
 		}
 		$check200 = undef;
 		undef(@badexts);
@@ -678,11 +680,11 @@ sub Standard{ #some standard stuff
 		#does the site have a mobile page?
 		$ua->agent('Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0');
 		my $mobilePage = $ua->get("http://$Host/");
-		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027"); # set back to regualr mozilla
+		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.3) Gecko/20010801"); # set back to regualr mozilla
 		my $regularPage = $ua->get("http://$Host/");
 		
 		unless($mobilePage->decoded_content() eq $regularPage->decoded_content()) {
-			print "+ Index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
+			print "[+] Index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
 		}
 		$mobilePage = undef; $regularPage = undef;
 		
@@ -696,19 +698,19 @@ sub Standard{ #some standard stuff
 		
 		my $sslreq = $ua->get("https://$Host/");
 		if($sslreq->is_success) {
-			print "+ $Host is SSL capable\n";
+			print "[+] $Host is SSL capable\n";
 			
 			my @parseSSL = getHeaders($sslreq->as_string);
 			foreach my $SSLheader (@parseSSL){
 				chomp($SSLheader);
 				
-				if($SSLheader =~ /client-ssl-cipher:/i) { $SSLheader =~ s/client-ssl-cipher://i; print "+ SSL Cipher: $SSLheader\n"; }
+				if($SSLheader =~ /client-ssl-cipher:/i) { $SSLheader =~ s/client-ssl-cipher://i; print "[+] SSL Cipher: $SSLheader\n"; }
 				if($SSLheader =~ /client-ssl-cert-issuer:/i) {#extract
 					$SSLheader =~ s/client-ssl-cert-issuer://i;
 					$SSLheader =~ s/.*\/O=//i;
 					$SSLheader =~ s/\/.*//;
 					
-					print "+ SSL Certificate vendor: $SSLheader\n";
+					print "[+] SSL Certificate vendor: $SSLheader\n";
 				}
 			}
 			
@@ -719,12 +721,13 @@ sub Standard{ #some standard stuff
 		
 		# common sensitive shtuff
 		open(FilesAndDirsDBFileS, "<", "DB/small-tests.db");
-		my @parseFilesAndDirsDBS = <FilesAndDirsDBFileS>;
-		foreach my $JustDirS (@parseFilesAndDirsDBS){
-			dataBaseScan($JustDirS,'',"Sensitive item found",'nonSynt') unless $JustDirS =~ /^#/;;
+		
+		while(<FilesAndDirsDBFileS>){
+			dataBaseScan($_,'',"Sensitive item found",'nonSynt') unless $_ =~ /^#/;;
 		}
+		
 		close(FilesAndDirsDBFileS);
-		undef(@parseFilesAndDirsDBS);
+
 		
 		
 		#Apache account name
@@ -739,6 +742,8 @@ sub Standard{ #some standard stuff
 							'netadmin',
 							'sysadmin',
 							'webadmin',
+							'manager',
+							'system',
 							'twighlighsparkle',
 							);
 		
@@ -746,7 +751,7 @@ sub Standard{ #some standard stuff
 			my $ApcheUseNmTest = $ua->get("http://$Host/~" . $usrnm);
 			
 			if($ApcheUseNmTest->code == 200 or $ApcheUseNmTest->code == 403) {
-				print  "+ This server has Apache user accounts enabled. Found User: ~$usrnm\n";
+				print  "[+] This server has Apache user accounts enabled. Found User: ~$usrnm\n";
 				analyzeResponse($ApcheUseNmTest->as_string() ,"/~$usrnm");
 			}
 		}
@@ -773,7 +778,7 @@ sub Standard{ #some standard stuff
 				$getThumbs = $ua->get("http://$Host".$imageDir.$CapTumbs);
 			
 				if($getThumbs->is_success) {
-					print "+ $CapTumbs found. This suggests the host is running Windows\n";
+					print "[+] $CapTumbs found. This suggests the host is running Windows\n";
 					analyzeResponse($getThumbs->as_string() ,$CapTumbs);
 					goto doneThumbs;
 				}
@@ -788,13 +793,11 @@ sub Standard{ #some standard stuff
 
 sub defaultFiles{
 	open(defaultFilesDB, "<", "DB/defaultFiles.db");
-	my @parsedefaultFilesDB = <defaultFilesDB>;
 	
-	foreach my $defaultFilesDirAndMsg (@parsedefaultFilesDB){
-		dataBaseScan($defaultFilesDirAndMsg,'','Default File Found','Synt');
+	while(<defaultFilesDB>){
+		dataBaseScan($_,'','Default File Found','Synt') unless $_ =~ m/^#/;
 	}
 
-	undef(@parsedefaultFilesDB);
 	close(defaultFilesDB);
 }
 
@@ -803,13 +806,11 @@ sub defaultFiles{
 
 sub auth{ # this DB is pretty good but needs more pazzaz
 	open(authDB, "<", "DB/login.db");
-	my @parseAUTHdb = <authDB>;
-	
-	foreach my $authDirAndMsg (@parseAUTHdb){
-		dataBaseScan($authDirAndMsg,'','Login Page Found','Synt') unless $authDirAndMsg =~ /^#/;
+
+	while(<authDB>){
+		dataBaseScan($_,'','Login Page Found','Synt') unless $_ =~ /^#/;
 	}
 
-	undef(@parseAUTHdb);
 	close(authDB);
 }
 
@@ -817,7 +818,7 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 
 
 sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.net
-	print "+ -Cp takes awhile....\n";
+	print "[-] -Cp takes awhile....\n";
 	my @cmsPluginDBlist;
 	if(defined $e) { $cmsPlugins = "all"; }
 	
@@ -838,15 +839,14 @@ sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.n
 	}
 	
 	foreach my $cmsPluginDB (@cmsPluginDBlist){
-		print "+ Testing Plugins with Database: $cmsPluginDB\n";
+		print "[+] Testing Plugins with Database: $cmsPluginDB\n";
 			
 		open(cmsPluginDBFile, "<", "$cmsPluginDB");
-		my @parsecmsPluginDB = <cmsPluginDBFile>;
-
-		foreach my $JustDir (@parsecmsPluginDB){
-			dataBaseScan($JustDir,'','CMS Plugin Found','nonSynt') unless $JustDir =~ /^#/;
+		
+		while(<cmsPluginDBFile>){
+			dataBaseScan($_,'','CMS Plugin Found','nonSynt') unless $_ =~ /^#/;
 		}
-		undef(@parsecmsPluginDB);
+
 		close(cmsPluginDBFile);
 
 	}
@@ -859,19 +859,18 @@ sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.n
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
 
-	print "+ -Fd takes awhile....\n";
-	my @FilesAndDirsDBlist = ('DB/raft-small-files.db','DB/raft-small-directories.db',);
+	print "[-] -Fd takes awhile....\n";
+	my @FilesAndDirsDBlist = ('DB/raft-medium-files.db','DB/raft-medium-directories.db',);
 	
 	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
-		print "+ Testing Files And Dirs with Database: $FilesAndDirsDB\n";
+		print "[+] Testing Files And Dirs with Database: $FilesAndDirsDB\n";
 			
 		open(FilesAndDirsDBFile, "<", "$FilesAndDirsDB");
-		my @parseFilesAndDirsDB = <FilesAndDirsDBFile>;
-			
-		foreach my $JustDir (@parseFilesAndDirsDB){
-			dataBaseScan($JustDir,'','Interesting File or Dir Found','nonSynt') unless $JustDir =~ /^#/;
+		
+		while(<FilesAndDirsDBFile>){
+			dataBaseScan($_,'','Interesting File or Dir Found','nonSynt') unless $_ =~ /^#/;
 		}
-		undef(@parseFilesAndDirsDB);
+
 		close(FilesAndDirsDBFile);
 
 	}
@@ -886,10 +885,9 @@ sub webServices{
 		my $webServicesTestPage = shift;
 		
 		open(webServicesDB, "<", "DB/web-services.db");
-		my @parsewebServicesdb = <webServicesDB>;
-
-		foreach my $ServiceString (@parsewebServicesdb){
-			dataBaseScan($ServiceString,$webServicesTestPage,'Web service Found','match') unless $ServiceString =~ /^#/;
+		
+		while(<webServicesDB>){
+			dataBaseScan($_,$webServicesTestPage,'Web service Found','match') unless $_ =~ /^#/;
 		}
 
 		close(webServicesDB);
@@ -940,14 +938,11 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 
 sub cms{ # cms default files with version info
 	open(cmsDB, "<", "DB/CMS.db");
-	my @parseCMSdb = <cmsDB>;
-
 	
-	foreach my $cmsDirAndMsg (@parseCMSdb){
-		dataBaseScan($cmsDirAndMsg,'','Web service Found (cms)','Synt') unless $cmsDirAndMsg =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
+	while(<cmsDB>){
+		dataBaseScan($_,'','Web service Found (cms)','Synt') unless $_ =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
 	}
 	
-	undef(@parseCMSdb);
 	close(cmsDB);
 }
 
@@ -958,6 +953,7 @@ sub interesting{ # emails, plugins and such
 	my $mineShaft = shift;
 	my $mineUrl = shift;
 	my $PageContentType = shift;
+	my $FoundInter = 0;
 	
 		$mineShaft =~ s/.*?\n\n//; #remove headers
 		
@@ -974,7 +970,7 @@ sub interesting{ # emails, plugins and such
 								'\/templates\/;template',
 								'\/_vti_;IIS Default Dir/File',
 								'$Host\/~;Apache User Dir', # Apache Account
-								'\w@.*?\.(com|org|net|tv|uk|au|edu|mil|gov|biz|info|int|tel|jobs|co);Email', #emails
+								'\w@.*?\.(com|org|net|tv|uk|au|ro|ca|xxx|edu|mil|gov|biz|info|int|tel|jobs|co|pro);Email', #emails
 								'(\t| |\n)@.*?\.(com|uk|au);maybe Twitter Account',
 								'<!--#;Server Side Include', #SSI
 								'fb:admins;Facebook fbids',
@@ -998,15 +994,14 @@ sub interesting{ # emails, plugins and such
 			foreach my $splitIndex (@IndexData){
 				study $splitIndex;
 				if($splitIndex =~ /$checkInterestingSting/i){
-					while($splitIndex =~ /(\n|\t|  )/){
-						$splitIndex =~ s/(\n|\t|  )/ /g;
-					}
+					while($splitIndex =~ /(\n|\t|  )/){ $splitIndex =~ s/(\n|\t|  )/ /g; }
 					
 					if(length($splitIndex) > 200){ # too big for output
-						print "+ Interesting text ($InMSG) found in \"$mineUrl\" You should manualy review it\n";
+						print "[+] Interesting text ($InMSG) found in \"$mineUrl\" You should manualy review it\n";
 						last;
 					} else {
 						push(@InterestingStringsFound, " \n\n  ($InMSG) \"$splitIndex\"");
+						$FoundInter = 1;
 					}
 				}
 			
@@ -1014,8 +1009,8 @@ sub interesting{ # emails, plugins and such
 
 
 			
-			if(defined $InterestingStringsFound[0]){ # if the page contains multi error just put em into the same string
-				print "+ Interesting text found in \"$mineUrl\": @InterestingStringsFound\n";
+			if($FoundInter){ # if the page contains multi error just put em into the same string
+				print "[+] Interesting text found in \"$mineUrl\": @InterestingStringsFound\n";
 			}
 			
 			undef(@InterestingStringsFound); # saves the above if for the next go around
@@ -1053,7 +1048,7 @@ sub ErrorStrings{ #failing is the key here
 				push(@FoundMatchItems, $reportMessage);
 			
 				unless($FoundBefor){
-					print "+ Error page: \"$ErrorURI\" $reportMessage\n";
+					print "[+] Error page: \"$ErrorURI\" $reportMessage\n";
 				}
 			}
 		}
@@ -1063,7 +1058,7 @@ sub ErrorStrings{ #failing is the key here
 
 
 
-sub Ninja{# total number of reqs sent: 6
+sub Ninja{ # total number of reqs sent: 6
 	my $ninjaTestPagee = $ua->get("http://$Host/");
 	bannerGrab($ninjaTestPagee->as_string);
 	sleep(int((rand(3)+2))); # pause for a random amount of time
@@ -1082,15 +1077,14 @@ sub Ninja{# total number of reqs sent: 6
 # I did not aid or assist in the creation or production of directory-list-2.3-big.db
 sub Dirbuster{
 
-	print "+ -Db takes awhile.... No joke. Go to the movies or something\n";
+	print "[-] -Db takes awhile.... No joke. Go to the movies or something\n";
 
 	open(DirbustDBFile, "<", "DB/directory-list-2.3-big.db");
-	my @parseDirbust = <DirbustDBFile>;
 	
-	foreach my $JustDir (@parseDirbust){
-		dataBaseScan($JustDir,'',"Directory found","nonSynt") unless $JustDir =~ /^#/;
+	while(<DirbustDBFile>){
+		dataBaseScan($_,'',"Directory found","nonSynt") unless $_ =~ /^#/;
 	}
-	undef(@parseDirbust);# unload from RAM
+	
 	close(DirbustDBFile);
 }
 
@@ -1098,7 +1092,7 @@ sub Dirbuster{
 
 
 sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/SubDomain.db
-	print "+ -Sd takes awhile...\n";
+	print "[-] -Sd takes awhile...\n";
 	
 	my $DomainOnly = $Host;
 	my $FindCount = 0;
@@ -1108,31 +1102,28 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 	}
 	
 	open(SubDomainDB, "<", "DB/SubDomain.db");
-	my @parseSubDomainDB = <SubDomainDB>;
 	
-	foreach my $subD (@parseSubDomainDB){ # start the scan
-		chomp $subD;
-		my $SubDomainToRequest = $subD.'.'.$DomainOnly;
+	while(<SubDomainDB>){
+		chomp $_;
+		my $SubDomainToRequest = $_.'.'.$DomainOnly;
 		my $TestSubDomain = inet_aton($SubDomainToRequest); # much more relieable then http requests for example smtp.blah.com will not respond with http 
 		
 		unless($TestSubDomain eq "") {
-			print "+ SubDomain Found: $SubDomainToRequest\n";
+			print "[+] SubDomain Found: $SubDomainToRequest\n";
 			$FindCount++;
 		}
 		
 	}
 
-	
-	undef(@parseSubDomainDB); # unload from RAM
 	close(SubDomainDB);
 	
 	if($FindCount > 1000) {
-		print "+ The host may have the DNS wildcard configuration which would render those results null and void.\n";
+		print "[-] The host may have the DNS wildcard configuration which would render those results null and void.\n";
 	}
 	if($FindCount == 0) {
-		print "+ Could not find any SubDomains on this host\n";
+		print "[-] Could not find any SubDomains on this host\n";
 	} else {
-		print "+ $FindCount SubDomains Found\n";
+		print "[+] $FindCount SubDomains Found\n";
 	}
 
 }
