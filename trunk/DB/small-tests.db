@@ -1,0 +1,157 @@
+# Copyright 2012 Dakota Simonds
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+############################################################################
+# small-tests.db has been and continues to be compiled from guess-work
+# and parsing varius databases.
+# This is basicly a bunch of sensitve things from log files to cgi dirs
+#
+xmlrpc.php
+admin
+public_html/robots.txt
+INSTALL.mysql.txt
+INSTALL.pgsql.txt
+install.txt
+INSTALL.txt
+INSTALL.TXT
+admincp.php
+STATUS.txt
+web.xml
+web.config
+Web.config
+lang/web.config
+modules/web.config
+plugins/web.config
+config.ini
+config.php
+configuration.ini
+settings.php
+settings.html
+_vti_inf.html
+_vti_info.html
+spamlog.log
+Version.aspx
+email.htm
+pass.txt
+password.txt
+passwords.txt
+passwd.txt
+passwordlist.txt
+Pass.txt
+Password.txt
+Passwords.txt
+Passwd.txt
+Passwordlist.txt
+pass.txt
+passWord.txt
+passWords.txt
+passWD.txt
+passwordList.txt
+www.sql
+ids_log.php
+XSQLConfig.xml
+PhpInfo.php
+PHPinfo.php
+PHPINFO.php
+phpInfo.php
+info.php
+phpinfo.php
+phpinfo.php3
+php.ini
+include/config.inc.php
+access.log
+ip.txt
+html/cgi-bin/
+cgi-bin/
+cgi-sys/
+CGI-BIN/
+cgi-bin2/
+cgibin/
+cgi-local/
+cgi/
+php-bin/
+fcgi-bin/
+is-bin/
+java-sys/
+adm-bin/
+cgi-win/
+cgis/
+cgi-shl/
+cgi-dos/
+cgi-perl/
+cgi-exe/
+protected_access/
+restricted_access/
+Remote-Access/
+Remote_Execution/
+remote-entry/
+remote_adm/
+ActiveDirectoryRemoteAdminScripts/
+Remote-Administrator/
+includes/
+include/
+installation/
+bin/
+Bin/
+xmlrpc
+logs/
+inc/
+config/
+_vti_cnf/
+_vti_log/
+_vti_pvt/
+_vti_bin/
+_vti_txt/
+email/
+bmail/
+bml_email/
+xmail/
+_temp/
+conf/
+config/
+configuration/
+myconfigs/
+wp-config/
+ip_configs/
+webconfig/
+web_config/
+server-status/
+sys_log/
+syslog/
+LOGS/
+LOG/
+Logfiles/
+access-log/
+access_logs/
+wwwlogs/
+_log/
+accesslog/
+log_data/
+xmllogs/
+site-log/
+web_scripts/
+webapp_data/
+usr-bin/
+Passwd_Files/
+wlan_webauth/
+sqli/
+doc/
+docs/
+system/
+bandwidth/
+weblogic
+_private/
+humans.txt
+dvwa/
+mutillidae/
+winnie_the_poo/
