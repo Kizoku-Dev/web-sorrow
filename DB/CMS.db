@@ -1,0 +1,101 @@
+# Copyright 2012 Dakota Simonds
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+############################################################################
+# CMS.db was painstaekingly handcarved from a plethera of tar's and zip's
+# and is used to enumerate Content Mangagement Systems
+#
+/wordpress;maybe CMS installation path
+/WordPress;maybe CMS installation path
+/wp;maybe CMS installation path
+/WP;maybe CMS installation path
+/drupal;maybe CMS installation path
+/Drupal;maybe CMS installation path
+/dp;maybe CMS installation path
+/DP;maybe CMS installation path
+/joomla;maybe CMS installation path
+/Joomla;maybe CMS installation path
+/cms;maybe CMS installation path
+/CMS;maybe CMS installation path
+/blog;maybe CMS installation path
+/Blog;maybe CMS installation path
+/readme.html;may contain wordpress info
+/wordpress/readme.html;contains wordpress info
+/CHANGELOG.txt;may contain drupal info
+/profiles/standard/standard.info;contains drupal info
+/profiles/testing/testing.info;contains drupal info
+/profiles/minimal/minimal.info;contains drupal info
+/joomla.xml;contains joomla info
+/adm/style/admin.css;contains phpBB info
+/docs/CHANGELOG.html;contains phpBB info
+/styles/prosilver/style.cfg;contains phpBB info
+/concrete/config/banned_words.txt;concrete default file found. funny as hell!
+/config/banned_words.txt;concrete default file found. funny as hell!
+/INSTALL;MAYBE mediawiki info
+/HISTORY;MAYBE mediawiki info
+/docs/export-demo.xml;mediawiki info
+/docs/maintenance.txt;mediawiki info
+/images/README;mediawiki info
+/docs/changelog.txt;wolfcms info
+/docs/updating.txt;wolfcms info
+/wolf/install/config.tmpl;maybe wolfcms info
+/CHANGELOG.md;forkcms info
+/VERSION.md;forkcms info. no sirusly they put it in there. nothing else. just the verion... face palm
+/backend/core/info.xml;forkcms info
+/docs/html/admin/index.html;phorum info
+/docs/html/admin/ch01.html;phorum info
+/docs/html/admin/ch01s04.html;phorum info
+/docs/html/admin/ch03s07.html;phorum info
+/docs/html/developer/ch03s15.html;phorum info
+/docs/html/developer/ch02.html;phorum info
+/nucleus/documentation/history.html;nucleus cms info
+/query.log;pligg cms. HHHmmmmmmmmm
+/README.txt;MAYBE django-lfc or drupal verions info
+/django_lfc.egg-info/vPKG-INFO;django-lfc verions info
+/lfc/fixtures/superuser.xml;django-lfc this looks REALLY interesting
+/version.txt;MAYBE jojo cms info
+/ChangeLog;MAYBE nanoblogger info
+/manager/VERSION;PlumeCMS info
+/Install_dotCMS_Release.txt;DotCMS info
+/history.txt;MAYBE contains CMS info
+/HISTORY.txt;MAYBE contains CMS info
+/history.md;MAYBE contains CMS info
+/HISTORY.md;MAYBE contains CMS info
+/install.html;MAYBE contains CMS info
+/install.htm;MAYBE contains CMS info
+/install.md;MAYBE contains CMS info
+/INSTALL.htm;MAYBE contains CMS info
+/installation.html;MAYBE contains CMS info
+/installation.htm;MAYBE contains CMS info
+/installation.md;MAYBE contains CMS info
+/readme.txt;MAYBE contains CMS info
+/readme.md;MAYBE contains CMS info
+/readme;MAYBE contains CMS info
+/README;MAYBE contains CMS info
+/README.md;MAYBE contains CMS info
+/README.html;MAYBE contains CMS info
+/versions.txt;MAYBE contains CMS info
+/VERSIONS.txt;MAYBE contains CMS info
+/versions.md;MAYBE contains CMS info
+/VERSIONS.md;MAYBE contains CMS info
+/VERSIONS.html;MAYBE contains CMS info
+/changelog.txt;MAYBE contains CMS info
+/changelog.md;MAYBE contains CMS info
+/changelog.html;MAYBE contains CMS info
+/CHANGELOG;MAYBE contains CMS info
+/ChangeLog;MAYBE contains Typo3 info
+/doc/stable.version;tiki CMS info
+/tiki/doc/stable.version;tiki CMS info
+/CHANGES;MAYBE contains info
+/CHANGES.txt;MAYBE contains info
+/Updates.txt;maybe phplogin info
