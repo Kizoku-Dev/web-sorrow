@@ -1,0 +1,67 @@
+# Copyright 2012 Dakota Simonds
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+############################################################################
+http:\/\/www\.godaddy\.com\/hosting\/website-builder\.aspx;contains link that is common in Hosting Provider godady 
+href='theme\.css\?\d;possibly a Hosting Provider godady
+<a href="http:\/\/godaddy\.com/\?isc;contains a link that is common in godady sites
+if \(typeof\(getCopyrightDate\)=='function'\) document\.write\(getCopyrightDate\(2008, null, '-'\)\);contains javascript that is common in godady sites
+<script type="text\/javascript" src="\/ajax\.cloudflare\.com\/;This site uses Cloud flare to manage there security
+<!\[CDATA\[\ntry\{if \(!window\.CloudFlare\) \{ var CloudFlare=\[\{;This site uses Cloud flare!;This site uses Cloud flare to manage there security
+<script type="text\/javascript" src="\/universal\/yui\/yahoo-dom-event\/yahoo-dom-event\.js\?CE=\d\d"></script>;Hosting Provider: squarespace.com
+<script src="\/universal\/yui\/yahoo-dom-event\/yahoo-dom-event\.js\?CE=\d\d"></script>;Hosting Provider: squarespace.com
+<script type="text\/javascript" src="\/universal\/yui\/element\/element\.js\?CE=\d\d"></script>;Hosting Provider: squarespace.com
+<script src="\/universal\/yui\/element\/element\.js\?CE=\d\d"></script>;contains a javascript from Hosting Provider: squarespace.com
+<script type="text\/javascript" src="http:\/\/alt\.squarespace\.com\/storage\/scripts\/twitter\.js"></script>;squarespace twitter gadget
+<script src="http:\/\/alt\.squarespace\.com\/storage\/scripts\/twitter\.js"></script>;Twitter widget from Hosting Provider: squarespace.com
+\/storage\/images\/.*?\.png\?__SQUARESPACE_CACHEVERSION=\d\d\d\d\d\d\d\d\d\d\d\d\d;Hosting Provider: squarespace.com
+<script type="text\/javascript" src="\/universal\/scripts\/global\.js\?CE=\d\d"><\/script>;Hosting Provider: squarespace.com
+<script type="text\/javascript" src="http:\/\/www\.blogger\.com\/static;blogger blog
+<img src="http:\/\/\d\.bp\.blogspot\.com\/;blogger blog
+src="http:\/\/assets\.tumblr\.com;tumblr blog
+<script type="text\/javascript" src="http:\/\/static\.tumblr\.com\/;tumblr blog
+<script src="https:\/\/ajax\.googleapis\.com\/ajax\/libs\/jquery;google ajax Libraries
+<script type="text\/javascript" src="http:\/\/ajax\.googleapis\.com\/ajax\/libs;google ajax Libraries
+<script src='http:\/\/ajax\.googleapis\.com\/ajax\/libs\/jquery\/\d.\d.\d/jquery\.min\.js' type='text\/javascript'>;google jquery Libraries
+document\.write\(unescape\("%3Cscript src='" \+ gaJsHost \+ "google-analytics\.com/ga\.js' type='text\/javascript'%3E%3C\/script%3E"\)\);google analytics
+ga\.src = \('https:' == document\.location\.protocol \? 'https:\/\/ssl' : 'http:\/\/www'\) \+ '\.google-analytics\.com/ga\.js';google analytics
+google_ad_client = \"ca-pub-\d\d\d\d\d\d\d\d\d\d\d\d\d\d\d\d\";google Ads
+<link type="text\/css" rel="stylesheet" href="http:\/\/static\.thoughts\.com\/css\/thoughts\.reset\.css;maybe thoughts.com blog
+<script type="text\/javascript" src="http:\/\/static\.thoughts\.com\/js\/plugins\.js;maybe thoughts.com blog
+<link type="text\/css" href="http:\/\/www\.homestead\.com\/~media;contains a css file from Intuit homestead
+<img alt="" src="http:\/\/www\.intuitwebsites\.com\/~site;contains an image file from Intuit homestead
+<script type="text\/javascript" src="http:\/\/disqus\.com;disqus.com commenting system
+<script src="http:\/\/disqus\.com;disqus.com commenting system
+<script type="text\/javascript" src="http:\/\/widgets\.getglue\.com\/checkin\.js">;getglue.com media rating system
+<script src="http:\/\/widgets\.getglue\.com\/checkin\.js">;getglue.com media rating system
+<script type="text\/javascript" src="http:\/\/edge\.quantserve\.com/quant\.js";quantserve.com
+<script src="http:\/\/edge\.quantserve\.com\/quant\.js";quantserve.com
+="http:\/\/(www\.|)dreamhost\.com\/;maybe Hosting Provider dreamhost.com
+="http:\/\/(www\.|)bluehost\.com;maybe Hosting Provider bluehost.com
+>Streaming Powered By Influxis<\/a>;Influxis
+http(s|):\/\/www\.paypalobjects\.com\/;Paypal
+<fb:login-button show-faces="false" scope=".*"><\/fb:login-button>;Login with facebook
+<iframe src=("|')\/\/www\.facebook\.com\/plugins\/likebox\.php;Facebook widget
+<iframe .*src=('|")http:\/\/www\.facebook\.com\/plugins\/like\.php\?;Facebook like button
+<a href="http:\/\/www\.facebook\.com\/badges\/like\.php";Facebook like button
+https:\/\/plusone.google.com\/u\/\d\/_\/pages\/badge\?bsv=p\&amp;url=https%3A%2F%2Fplus.google.com%......................;google plus widget
+src=('|")http(s|):\/\/plusone\.google\.com\/.?><.iframe>;google plus one button
+<script src=('|")http:\/\/platform\.twitter\.com\/widgets\.js('|") type='text\/javascript'\/>;twitter widget
+<script src=('|")http:\/\/widgets\.twimg\.com\/j\/\d\/widget\.js('|")><\/script>;twitter widget
+<script src=('|")http:\/\/platform\.linkedin\.com\/in\.js('|") type=('|")text\/javascript('|");linkedin button
+http:\/\/www\.linkedin\.com\/groups\?redirect=true&pf_rd_m=.*&pf_rd_s=.*&gid=\d\d\d\d\d\d\d;linkedin
+<form action=('|")http:\/\/www\.google\.com('|") id=('|")cse-search-box('|")>;google search
+<link href=('|")http:\/\/.*\.cloudfront\.net\/.*('|");cloudfront
+\/wp-includes\/js\/jquery\/jquery\.js\?ver=\d\.\d(\.\d)'><\/script>;Wordpress jquery
+http:\/\/rcm\.amazon\.com;Amazon affiliate program
+src=("|')/_kickstand/images/cart-icon.gif("|');shoping cart
