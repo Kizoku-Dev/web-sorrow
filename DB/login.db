@@ -1,0 +1,395 @@
+# Copyright 2012 Dakota Simonds
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+############################################################################
+/login.html;Generic
+/login.shtml;Generic
+/login.htm;Generic
+/login.php;Generic
+/login.aspx;Generic
+/login.asp;Generic
+/login.jsp;Generic
+/login.srf;Generic
+/login.rb;Generic
+/login.py;Generic
+/login.pl;Generic
+/login.cgi;Generic
+/Login.html;Generic
+/Login.shtml;Generic
+/Login.htm;Generic
+/Login.php;Generic
+/Login.aspx;Generic
+/Login.asp;Generic
+/Login.jsp;Generic
+/Login.rb;Generic
+/Login.py;Generic
+/Login.pl;Generic
+/Login.cgi;Generic
+/log-in;Generic
+/Log-in;Generic
+/Log-In;Generic
+/login/administrator;Admin Login
+/login/admin;Admin Login
+/login;Generic
+/logon.html;Generic
+/logon.htm;Generic
+/logon.php;Generic
+/logon.aspx;Generic
+/logon.asp;Generic
+/logon.jsp;Generic
+/logon.rb;Generic
+/logon.py;Generic
+/logon;Generic
+/logon/logon.html;Generic
+/logon/logon.php;Generic
+/logon/logon.aspx;Generic
+/logon/logon.asp;Generic
+/logon/logon.jsp;Generic
+/logon/logon.shtml;Generic
+/logon/logon.pl;Generic
+/logon/logon.rb;Generic
+/logon/logon.py;Generic
+/user;maybe drupal
+/users;maybe login page
+/signin;Generic
+/Signin;Generic
+/signin.php;Generic
+/signin.html;Generic
+/signin.shtml;Generic
+/signin.htm;Generic
+/signin.aspx;Generic
+/signin.asp;Generic
+/signin.jsp;Generic
+/signin.rb;Generic
+/signin.py;Generic
+/signin.pl;Generic
+/signin.cgi;Generic
+/Signin.php;Generic
+/Signin.html;Generic
+/Signin.shtml;Generic
+/Signin.htm;Generic
+/Signin.aspx;Generic
+/Signin.asp;Generic
+/Signin.jsp;Generic
+/Signin.rb;Generic
+/Signin.py;Generic
+/Signin.pl;Generic
+/Signin.cgi;Generic
+/sign-in;Generic
+/Sign-in;Generic
+/Sign-In;Generic
+/members;Generic
+/members.php;Generic
+/members.shtml;Generic
+/members.htm;Generic
+/members.html;Generic
+/members.jsp;Generic
+/members.asp;Generic
+/members.aspx;Generic
+/members.rb;Generic
+/members.py;Generic
+/members.pl;Generic
+/members.cgi;Generic
+/Members;Generic
+/Members;Generic
+/Members.php;Generic
+/Members.shtml;Generic
+/Members.htm;Generic
+/Members.html;Generic
+/Members.jsp;Generic
+/Members.asp;Generic
+/Members.aspx;Generic
+/Members.rb;Generic
+/Members.py;Generic
+/Members.cgi;Generic
+/Members.pl;Generic
+/members/login;Generic
+/members/logon;Generic
+/members/signin;Generic
+/members/login.html;Generic
+/members/login.php;Generic
+/members/login.aspx;Generic
+/members/login.asp;Generic
+/members/login.jsp;Generic
+/member;Generic
+/member/login;Generic
+/member/logon;Generic
+/member/signin;Generic
+/member/login.html;Generic
+/member/login.php;Generic
+/member/login.aspx;Generic
+/member/login.asp;Generic
+/member/login.jsp;Generic
+/member/login.rb;Generic
+/member/login.py;Generic
+/account;Generic
+/Account;Generic
+/account/login;Generic
+/account/logon;Generic
+/account/signin;Generic
+/account/login.php;Generic
+/account/login.aspx;Generic
+/account/login.asp;Generic
+/account/login.jsp;Generic
+/account/login.html;Generic
+/account/login.htm;Generic
+/account/login.shtml;Generic
+/account/login.rb;Generic
+/account/login.py;Generic
+/accounts.php;Generic
+/accounts.htm;Generic
+/accounts.html;Generic
+/accounts.pl;Generic
+/accounts.cgi;Generic
+/accounts.asp;Generic
+/accounts.aspx;Generic
+/accounts.jsp;Generic
+/accounts.rb;Generic
+/accounts.py;Generic
+/accounts/login.php;Generic
+/accounts/login.aspx;Generic
+/accounts/login.asp;Generic
+/accounts/login.jsp;Generic
+/accounts/login.html;Generic
+/accounts/login.htm;Generic
+/accounts/login.shtml;Generic
+/accounts/login.rb;Generic
+/accounts/login.py;Generic
+/accounts/login;Generic
+/accounts/logon;Generic
+/accounts/signin;Generic
+/accounts/login.html;Generic
+/accounts/login.php;Generic
+/accounts/login.aspx;Generic
+/accounts/login.asp;Generic
+/accounts/login.jsp;Generic
+/accounts/login.rb;Generic
+/accounts/login.py;Generic
+/accounts;Generic
+/Accounts;Generic
+/auth.php;Authentication Page
+/auth.htm;Authentication Page
+/auth.html;Authentication Page
+/auth.pl;Authentication Page
+/auth.cgi;Authentication Page
+/auth.asp;Authentication Page
+/auth.aspx;Authentication Page
+/auth.jsp;Authentication Page
+/auth.rb;Authentication Page
+/auth.py;Authentication Page
+/oauth.php;oauth authentication
+/oauth;oauth authentication
+/dialog/oauth;oauth authentication
+/login/oauth;oauth authentication
+/signin/oauth;oauth authentication
+/oauth/login;oauth authentication
+/oauth/signin;oauth authentication
+/auth;Generic
+/Auth;Generic
+/auth/login;Generic
+/auth/logon;Generic
+/auth/signin;Generic
+/auth/login.php;Generic
+/auth/login.html;Generic
+/auth/login.shtml;Generic
+/auth/login.aspx;Generic
+/auth/login.asp;Generic
+/auth/login.jsp;Generic
+/auth/admin;Admin Login
+/auth/adm;Admin Login
+/administrator;Admin Login
+/Administrator;Admin Login
+/admin/admin/login;Admin Login
+/admin/login;Admin Login
+/admin;Admin Login
+/admin/login.html;Admin Login
+/admin/login.php;Admin Login
+/admin/login.aspx;Admin Login
+/admin/login.asp;Admin Login
+/admin/login.jsp;Admin Login
+/admin/login.rb;Admin Login
+/admin/login.py;Admin Login
+/admin/admin;Admin Login
+/admin/signin;Admin Login
+/Admin;Admin Login
+/_admin;Admin Login
+/_Admin;Admin Login
+/Admin/login;Admin Login
+/Admin/login.php;Admin Login
+/admin.asp;Admin Login
+/admin.aspx;Admin Login
+/admin.htm;Admin Login
+/admin.html;Admin Login
+/admin.shtml;Admin Login
+/admin.php;Admin Login
+/admin.jsp;Admin Login
+/admin.cgi;Admin Login
+/admin.pl;Admin Login
+/admin.srf;Admin Login
+/admin.rb;Admin Login
+/admin.py;Admin Login
+/admin.exe;Admin Login
+/Admin.asp;Admin Login
+/Admin.aspx;Admin Login
+/Admin.htm;Admin Login
+/Admin.html;Admin Login
+/Admin.shtml;Admin Login
+/Admin.php;Admin Login
+/Admin.jsp;Admin Login
+/Admin.cgi;Admin Login
+/Admin.pl;Admin Login
+/Admin.py;Admin Login
+/Admin.rb;Admin Login
+/Admin.exe;Admin Login
+/Adm.asp;Admin Login
+/Adm.aspx;Admin Login
+/Adm.htm;Admin Login
+/Adm.html;Admin Login
+/Adm.shtml;Admin Login
+/Adm.php;Admin Login
+/Adm.jsp;Admin Login
+/Adm.cgi;Admin Login
+/Adm.pl;Admin Login
+/Adm.rb;Admin Login
+/Adm.py;Admin Login
+/adm.asp;Admin Login
+/adm.aspx;Admin Login
+/adm.htm;Admin Login
+/adm.html;Admin Login
+/adm.shtml;Admin Login
+/adm.php;Admin Login
+/adm.jsp;Admin Login
+/adm.cgi;Admin Login
+/adm.pl;Admin Login
+/adm.rb;Admin Login
+/adm.py;Admin Login
+/admin/admin.php;Admin Login
+/admin/admin.shtml;Admin Login
+/administrator/login;Admin Login
+/Administrator/login;Admin Login
+/admin-console;Admin Login
+/administrator.asp;Admin Login
+/administrator.jsp;Admin Login
+/administrator.php;Admin Login
+/administrator.aspx;Admin Login
+/administrator.htm;Admin Login
+/administrator.html;Admin Login
+/administrator.shtml;Admin Login
+/administrator.rb;Admin Login
+/administrator.py;Admin Login
+/administracao.php;Admin Login
+/administracion.php;Admin Login
+/administrateur.php;Admin Login
+/administration.html;Admin Login
+/administration.shtml;Admin Login
+/administration.php;Admin Login
+/Administrator.asp;Admin Login
+/Administrator.jsp;Admin Login
+/Administrator.php;Admin Login
+/Administrator.aspx;Admin Login
+/Administrator.htm;Admin Login
+/Administrator.html;Admin Login
+/Administrator.shtml;Admin Login
+/Administracao.php;Admin Login
+/Administracion.php;Admin Login
+/Administrateur.php;Admin Login
+/Administration.html;Admin Login
+/Administration.shtml;Admin Login
+/Administration.php;Admin Login
+/adminpanel.asp;Admin Login
+/adminpanel.html;Admin Login
+/adminpanel.php;Admin Login
+/adm;Admin Login
+/Adm;Admin Login
+/webadmin;admin
+/WebAdmin;Admin Login
+/webadmin.htm;Admin Login
+/webadmin.html;Admin Login
+/webadmin.shtml;Admin Login
+/webadmin.php;Admin Login
+/webadmin.asp;Admin Login
+/webadmin.aspx;Admin Login
+/webadmin.jsp;Admin Login
+/netadmin;Admin Login
+/NetAdmin;Admin Login
+/netadmin.htm;Admin Login
+/netadmin.html;Admin Login
+/netadmin.shtml;Admin Login
+/netadmin.php;Admin Login
+/netadmin.asp;Admin Login
+/netadmin.aspx;Admin Login
+/netadmin.jsp;Admin Login
+/root;Admin Login
+/exchange/logon.asp;exchange
+/gs/admin;admin
+/AdminRealm;Weblogic admin
+/phpmyadmin;phpmyadmin
+/phpMyAdmin;phpmyadmin
+/mysqladmin;phpmyadmin
+/MySQLadmin;MySQL admin
+/MySQLAdmin;MySQL admin
+/wp-login.php;wordpress
+/wp-admin;wordpress
+/cfide/administrator/index.cfm;Cold Fusion Admin console
+/CFIDE/Administrator/;Cold Fusion Admin console
+/cpanel;Cpanel Admin Console
+/login/cpanel.php;Cpanel Admin Console
+/login/cpanel;Cpanel Admin Console
+/cgi/account;blueHost
+/webmail;webmail email
+/whm;WHM
+/index.php/login/;MAYBE phpBB
+/admin/?/login;maybe Wolf CMS
+/wolfcms/?/login;Wolf CMS
+/Security/login;maybe Silverstripe CMS
+/owa;Outlook web application
+/admincp/index.php;Vbulletin Admin console
+/jsp/extension/login.jsp;Alfresco
+/member-login;MAYBE contegro
+/pipermail;pipermail Email WebApp
+/mailman;mailman Email WebApp
+/whm;Cpanel like login
+/controlpanel;controlpanel
+/controlpanel.asp;controlpanel
+/controlpanel.html;controlpanel
+/controlpanel.php;controlpanel
+/controlpanel.aspx;controlpanel
+/controlpanel.shtml;controlpanel
+/controlpanel.htm;controlpanel
+/sendmail;Email WebApp
+/qmail;Email WebApp
+/procmail;Email WebApp
+/e-mail;maybe Email WebApp
+/emailbox;Email WebApp
+/imail;Email WebApp
+/hypermail;Email WebApp
+/formmail;Email WebApp
+/invisimail;Email WebApp
+/archiver;Email WebApp
+/bbemail;Email WebApp
+/squirrelmail;Email WebApp
+/moinmail;Email WebApp
+/secureemail;Email WebApp
+/freemail;Email WebApp
+/forum/admin;Forum admin
+/manager/html/;Apache Tomcat
+/axis2/axis2-admin/;Apache Axis2
+/axis1/axis1-admin/;Apache Axis1
+/cacti;webapp login
+/adminer-3.4.0-en.php;Adminer database managment
+/adminer-3.4.0-mysql.php;Adminer database managment
+/adminer-3.4.0.php;Adminer database managment
+/iisadmin;IIS Admin
+/HFM/Administration;Hyperion admin console
+/compass/logon.jsp;JRun login
+/borat;It's a NICEEE
