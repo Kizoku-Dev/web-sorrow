@@ -1,5 +1,14 @@
 #!/usr/bin/perl 
 
+###################
+###########
+#######
+####### ATTENTION! this file will no loger be updated or maitained and the up to date version is in the trunk
+#######
+###########
+###################
+
+
 # Copyright 2012 Dakota Simonds
 # A small portion of this software is from Lilith 6.0A and is Sited.
 # sub MatchDirIndex (very modified) Copyright (c) 2003-2005 Michael Hendrickx
@@ -17,10 +26,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.4.1
+#VERSION 1.4.2
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n[+] Web-Sorrow v1.4.1 remote enumeration security tool\n";
+	print "\n[+] Web-Sorrow v1.4.2 remote enumeration security tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -50,25 +59,26 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 
 		GetOptions(
-			"host=s"  => \$Host, # host ip or domain
-			"port=i"  => \$Port, # port number
-			"S"       => \my $S, # Standard checks
-			"auth"    => \my $auth, # MEH!!!!!! self explanitory
-			"Cp=s"    => \my $cmsPlugins, # cms plugins
-			"I"       => \my $interesting, # find interesting text
-			"Ws"      => \my $Ws, # Web services
-			"e"       => \my $e, # EVERYTHINGGGGGGGG
-			"proxy=s" => \my $ProxyServer, #use a proxy
-			"Fd"      => \my $Fd, # files and dirs
-			"ninja"   => \my $nin,
-			"Db"      => \my $DirB, # use dirbuster database
-			"ua=s"    => \my $UserA, # userAgent
-			"Sd"      => \my $SubDom, # subdomain
-			"R"       => \my $RangHeader,
-			"Shadow"  => \my $shdw,
-			"Df"      => \my $Df, #default files
-			"d=s"     => \my $Dir,
-			"np"      => \my $noPasive,
+			"host=s"    => \$Host,            # host ip or domain
+			"port=i"    => \$Port,            # port number
+			"S"         => \my $S,            # Standard checks
+			"auth"      => \my $auth,         # MEH!!!!!! self explanitory
+			"Cp=s"      => \my $cmsPlugins,   # cms plugins
+			"I"         => \my $interesting,  # find interesting text
+			"Ws"        => \my $Ws,           # Web services
+			"e"         => \my $e,            # EVERYTHINGGGGGGGG
+			"proxy=s"   => \my $ProxyServer,  # use a proxy
+			"Fd"        => \my $Fd,           # files and dirs
+			"ninja"     => \my $nin,          # use ancient ninja methods
+			"Db"        => \my $DirB,         # use dirbuster database
+			"ua=s"      => \my $UserA,        # userAgent
+			"Sd"        => \my $SubDom,       # subdomain
+			"R"         => \my $RangHeader,   # do head and range reqs
+			"Shadow"    => \my $shdw,         # req from google cache
+			"Df=s"      => \my $Df,           # default files
+			"d=s"       => \my $Dir,          # scan within this dir
+			"dp"        => \my $doPasive,     # do passive
+			"fuzzsd"    => \my $fuzzsd,       # fuzz source disclosure
 		);
 		
 		
@@ -107,7 +117,6 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			$ua->proxy('http',"http://$ProxyServer"); # always make sure to put this first, lest we send un-proxied packets
 		}
 		if(defined $RangHeader) {
-			print "[-] -R is experimental\n";
 			$ua->default_headers->header('Range' => 'bytes 0-1');
 		}
 		if(defined $shdw) {
@@ -154,24 +163,24 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			}
 			
 			# in order of aproximate finish times
-			if(defined $S)         { Standard();            }
-			if(defined $nin)       { Ninja();               }
-			if(defined $auth)      { auth();                }
-			if(defined $Df)        { defaultFiles();        }
-			if(defined $cmsPlugins){ cmsPlugins();          }
-			if(defined $Ws)        { webServices();         }
-			if(defined $SubDom)    { SubDomainBF();         }
-			if(defined $Fd)        { FilesAndDirsGoodies(); }
-			if(defined $DirB)      { Dirbuster();           }
-			if(defined $e)         { runAll();              }
+			if(defined $S)           { Standard();            }
+			if(defined $nin)         { Ninja();               }
+			if(defined $auth)        { auth();                }
+			if(defined $Df)          { defaultFiles();        }
+			if(defined $cmsPlugins)  { cmsPlugins();          }
+			if(defined $Ws)          { webServices();         }
+			if(defined $SubDom)      { SubDomainBF();         }
+			if(defined $Fd)          { FilesAndDirsGoodies(); }
+			if(defined $DirB)        { Dirbuster();           }
+			if(defined $e)           { runAll();              }
 			
 			
 			
 			sub runAll{
 				Standard();
 				auth();
-				defaultFiles();
 				webServices();
+				defaultFiles();
 				SubDomainBF();
 				cmsPlugins();
 				FilesAndDirsGoodies();
@@ -182,7 +191,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 
 		print "=" x 70 . "\n";
-		print "[+] done :'(  -  Finsh Time: " . localtime . "\n";
+		print "[+] Done :'(  -  Finsh Time: " . localtime . "\n";
 
 
 
@@ -200,7 +209,7 @@ sub usage{
 print q{
 Remember to check for updates http://web-sorrow.googlecode.com/
 
-Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)]
+Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)] [OTHER]
 
 HOST OPTIONS:
     -host [host]     -- Defines host to scan or a list separated by semicolons
@@ -215,23 +224,26 @@ SCANS:
                  Mobile page testing, sensitive items scanning, and
                  thumbs.db scanning
     -auth    --  Scan for login pages, admin consoles, and email webapps
-    -Cp [dp | jm | wp | all] -- scan for cms plugins.
+    -Cp [dp | jm | wp | all] scan for cms plugins.
                  dp = drupal, jm = joomla, wp = wordpress 
     -Fd      --  Scan for common interesting files and dirs (Bruteforce)
     -Sd      --  BruteForce Subdomains (host given must be a domain. Not an IP)
     -Ws      --  Scan for Web Services on host such as: cms version info, 
                  blogging services, favicon fingerprints, and hosting provider
     -Db      --  BruteForce Directories with the big dirbuster Database
-    -Df      --  Scan for default Apache files
+    -Df [option] Scan for default files. platfroms/options: Apache,
+                 Frontpage, IIS, Oracle9i, Weblogic, Websphere,
+                 MicrosoftCGI, all (enables all)
+    -ninja   --  A light weight and undetectable scan that uses bits and
+                 peices from other scans (it is not recomended to use with any
+                 other scans if you want to be stealthy. See readme.txt)
+    -fuzzsd  --  Fuzz every found file for Source Disclosure
     -e       --  Everything. run all scans
 
 
 OTHER:
     -I       --  Passively find interesting strings in responses (results may
                  contain partial html)
-    -ninja   --  A light weight and undetectable scan that uses bits and
-                 peices from other scans (it is not recomended to use with any
-                 other scans if you want to be stealthy. See readme.txt)
     -ua [ua] --  Useragent to use. put it in quotes. (default is firefox linux)
     -R       --  Only request HTTP headers (ranges and head reqs).
                  This is much faster but some features and capabilities
@@ -241,14 +253,15 @@ OTHER:
     -Shadow  --  Request pages from Google cache instead of from the Host.
                  (mostly for just -I otherwise it's unreliable)
     -d [dir] --  Only scan within this directory
-    -np      --  Don't do passive tests: banner grabbing, Dir indexing,
-                 Odd http status, Error pages/strings (be less verbose)
+    -dp      --  Do passive tests on requests: banner grabbing, Dir indexing,
+                 Non 200 http status, strings in error pages,
+                 passive Web services
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
     perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "script w/ the munchies"
-    perl Wsorrow.pl -host thediamondclub.com -d /wordpress -Cp wp
-    perl Wsorrow.pl -host 66.11.227.35 -port 8080 -proxy 129.255.1.17:3128 -S -Ws -I 
+    perl Wsorrow.pl -host chatrealm.us -d /wordpress -Cp wp
+    perl Wsorrow.pl -host 66.11.227.35 -port 8080 -proxy 129.255.1.17:3128 -S -Ws -I
 };
 
 }
@@ -256,11 +269,11 @@ EXAMPLES:
 sub checkHostAvailibilty{
 	my $CheckHost1 = $ua->get("http://$Host/");
 	my $CheckHost2 = $ua->get("http://$Host");
-	analyzeResponse($CheckHost2->decoded_content, "/");
+		analyzeResponse($CheckHost2->decoded_content, "/");
 	
-	if($CheckHost2->is_error and $CheckHost1->is_error) {
-		print "[-] Host: $Host appears to be offline or unavailble. Continuing...\n";
-	}
+		if($CheckHost2->is_error and $CheckHost1->is_error) {
+			print "[-] Host: $Host appears to be offline or unavailble. Continuing...\n";
+		}
 }
 
 sub PromtUser{ # Yes or No?
@@ -303,6 +316,8 @@ sub analyzeResponse{ # heres were most of the smart is...
 									'request has been blocked',
 									'an automated process',
 									'nothing found',
+									'Request aborted',
+									'no such page',
 									'just calm down. 420',
 		);
 		
@@ -320,7 +335,7 @@ sub analyzeResponse{ # heres were most of the smart is...
 			
 			
 		# Login Page detection
-		unless(defined $auth) { # that would make a SAD panda :(
+		unless(defined $auth) { # that would make me a SAD panda :(
 			my @PosibleLoginPageStrings = ('login','log-in','sign( |)in','logon',);
 			foreach my $loginCheck (@PosibleLoginPageStrings){
 				if($CheckResp =~ m/<title>.*$loginCheck.*<\/title>/i) {
@@ -338,51 +353,24 @@ sub analyzeResponse{ # heres were most of the smart is...
 			if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i){  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
 			
 			#auth page checking
-			if($analHString =~ m/www-authenticate:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
+			if($analHString =~ m/www-authenticate:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" HTTP basic auth\n";  }
 			
 			#a hash?
 			if($analHString =~ m/Content-MD5:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
 			
 			#redircted me?
-			if($analHString =~ m/refresh:( |)\w/i){  print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
+			if($analHString =~ m/refresh:( |)/i){  print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
 			
 			if($analHString =~ m/HTTP\/1\.(1|0) 30(1|2|7)/i){ print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
 				
 			if($analHString =~ m/location:/i){
-				my @checkLocation = split(/:/,$analHString);
-				my $lactionEnd = $checkLocation[1];
-				unless($lactionEnd =~ m/($checkURL|index\.)/i){ 
+				my ($dontkare, $lactionEnd) = split(/:/,$analHString);
+				unless($lactionEnd =~ m/($checkURL|index\.)/i){
 					print "[-] Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
 				}
 			}
 		}
-		
-		#this part is for extra (passive) tests
-		
-		unless(defined $noPasive) {
-			if(defined $interesting or defined $nin or defined $e) {
-				#determine content-type
-				my $respContentType;
-				my @indexHeaders = getHeaders($CheckResp);
-			
-				foreach my $indexHeader (@indexHeaders){
-					if($indexHeader =~ m/content-type:/i) {
-						$respContentType = $indexHeader;
-					}
-				}
-				undef(@indexHeaders);
-				interesting($CheckResp,$checkURL,$respContentType); # anything intsting here?
-			}
-
-			MatchDirIndex($CheckResp,$checkURL);
-			
-			if(defined $Ws) {
-				WScontent($CheckResp);
-			}
-			
-			bannerGrab($CheckResp);
-		}
-		
+				
 		$CheckResp = undef;
 }
 
@@ -494,23 +482,32 @@ sub makeRequest{
 	my $scanMSGG = shift;
 	my $databaseContextt = shift;
 	
-		my $Testreq = $ua->get("http://$Host" . $JustDirDBB) unless defined $RangHeader;
 		if(defined $RangHeader) {
-			$Testreq = $ua->head("http://$Host" . $JustDirDBB)
+		
+			my $Testreq = $ua->head("http://$Host" . $JustDirDBB)
+			
 		}
+	
+		my $Testreq = $ua->get("http://$Host" . $JustDirDBB) unless defined $RangHeader;
+		
 		
 		if($Testreq->is_success) {
-			print "[+] $scanMSGG: \"$JustDirDBB\"";
 			if($databaseContextt eq "Synt") {
-				print " - $MSGG\n";
+			
+				print "[+] $scanMSGG ($MSGG): \"$JustDirDBB\"\n";
+			
 			} else {
-				print "\n";
+			
+				print "[+] $scanMSGG: \"$JustDirDBB\"\n";
+			
 			}
 				
-			analyzeResponse($Testreq->as_string , $JustDirDBB);
+			analyzeResponse($Testreq->as_string, $JustDirDBB);
+			sourceDiscolsure($JustDirDBB) if defined $fuzzsd or defined $e;
+			PassiveTests($Testreq->as_string, $JustDirDBB) if defined $doPasive;
 		}
 		
-		oddHttpStatus($Testreq->as_string(), $JustDirDBB) unless defined $noPasive ; # can't put in repsonceAnalysis cuz of ->is_success
+		oddHttpStatus($JustDirDBB) if defined $doPasive; # can't put in repsonceAnalysis cuz of ->is_success
 		$Testreq = undef;
 		$JustDirDBB = undef;
 }
@@ -596,12 +593,105 @@ sub Robots{
 	$roboContent = undef;
 }
 
+sub sourceDiscolsure{
+	my $PathToSDis = shift;
+		
+		my @SDisAttackPatterns = (
+								"?-s",
+								"%70",
+								".%E2%73%70",
+								"%2e0",
+								"%2e",
+								".",
+								"\\",
+								"/",
+								"?*",
+								"%20",
+								".%20",
+								"+",
+								"%00",
+								"%2f",
+								"%5c",
+								"+.htr",
+								"::DATA\$",
+								"::\$DATA",
+								"..%255c",
+								".%5c../..%5c",
+								"/..%c0%9v../",
+								"/..%c0%af../",
+								"/..%255c..%255c",
+		);
+		
+		foreach $SDisAP (@SDisAttackPatterns){
+			my $SDisReq = $ua->get("http://$Host"."$PathToSDis"."$SDisAP");
+			if($SDisReq->is_success and $SDisReq->decoded_content =~ /(<\?php|&lt;\?php|#include <|#!\/usr|#!\/bin|import java\.|public class .+\{|<\%.+\%>|<asp:|package\s.+\;.*)/i) {
+				print "[+] Source Disclosure Found: \"$PathToSDis$SDisAP\"\n";
+			}
+		}
+		
+		if($PathToDis =~ /asp$/){ # special asp test
+			$PathToDis =~ s/asp/%61%73%70/;
+			$SDisReq = $ua->get("http://$Host"."$PathToSDis");
+			if($SDisReq->decoded_content =~ /<asp:/) {
+				print "[+] Source Disclosure Found: \"$PathToSDis\"\n";
+			}
+			$PathToDis =~ s/%61%73%70/asp/;
+		}
+		
+		foreach $BeforPattern ("/...", "/", "/..%c0%9v.." ,"/..%c0%af..", ".%5c../..%5c", "/..%255c..%255c"){
+			$SDisReq = $ua->get("http://$Host".$BeforPattern."$PathToSDis");
+			if($SDisReq->decoded_content =~ /(<\?php|&lt;\?php|#include <|#!\/usr|#!\/bin|import java\.|public class .+\{|<\%.+\%>|<asp:|package\s.+\;.*)/i) {
+				print "[+] Source Disclosure Found: \"$BeforPattern$PathToSDis\"\n";
+			}
+		}
+		
+		$SDisReq = undef;
+}
+
+sub PassiveTests{
+	my $PassiveCon = shift;
+	my $PassiveURL = shift;
+		
+		#determine content-type
+		if(defined $interesting or defined $nin or defined $e) {
+			
+			my @indexHeaders = getHeaders($PassiveCon);
+			
+			foreach my $indexHeader (@indexHeaders){
+				if($indexHeader =~ m/content-type:/i) {
+					my $respContentType = $indexHeader;
+				}
+			}
+			undef(@indexHeaders);
+			interesting($PassiveCon,$PassiveURL,$respContentType); # anything intsting here?
+		}
+	
+		MatchDirIndex($PassiveCon,$PassiveURL);
+		WScontent($PassiveCon) if(defined $Ws);
+		bannerGrab($PassiveCon);
+}
+
+
 #---------------------------------------------------------------------------------------------------------------
 # scanning subs
 
 
+
 sub Standard{ #some standard stuff
 		bannerGrab($ua->get("http://$Host/")->as_string);
+		
+		my @tit = getHeaders($ua->get("http://$Host/")->as_string);
+		sourceDiscolsure("/") if defined $fuzzsd or defined $e;
+		foreach my $getTitle(@tit){
+			if($getTitle =~ m/Title:/i) {
+				$getTitle =~ s/Title://i;
+				print "[+] HTTP Title: $getTitle\n";
+			}
+			if($getTitle =~ m/^Date:/i) {
+				$getTitle =~ s/Date://i;
+				print "[+] HTTP Date: $getTitle\n";
+			}
+		}
 		
 		#robots.txt
 		Robots();
@@ -628,6 +718,7 @@ sub Standard{ #some standard stuff
 						'/files',
 						'/js',
 						'/site',
+						'/uploads',
 		);
 						
 	
@@ -651,9 +742,8 @@ sub Standard{ #some standard stuff
 				$lineIDK =~ s/(\t|\n)//g; #make pretty
 				$lineIDK =~ s/(<.*|>.*)//g; #prevent html from sliping in
 				
-				unless($lineIDK =~ /lang=('|")('|")/) { # empty?
-					print "[+] Page Laguage found: $lineIDK\n";
-					last; # somtimes pages have like 4 or 5 so just find one
+				unless($lineIDK =~ /lang=('|")('|")/) {
+					print "[+] Page Laguage found: $lineIDK\n"; last; # somtimes pages have like 4 or 5 so just find one
 				}
 			}
 		}
@@ -663,8 +753,7 @@ sub Standard{ #some standard stuff
 		my @badexts;
 		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall');
 		foreach my $Extention (@webExtentions){
-			my $testErrorString = genErrorString();
-			my $check200 = $ua->get("http://$Host/$testErrorString" . $Extention);
+			my $check200 = $ua->get("http://$Host/$testErrorString" . genErrorString());
 			
 			if($check200->is_success) {
 				push(@badexts, "\"$Extention\" ");
@@ -718,17 +807,6 @@ sub Standard{ #some standard stuff
 		$sslreq = undef;
 		$ua->ssl_opts(verify_hostname => 0);
 
-		
-		# common sensitive shtuff
-		open(FilesAndDirsDBFileS, "<", "DB/small-tests.db");
-		
-		while(<FilesAndDirsDBFileS>){
-			dataBaseScan($_,'',"Sensitive item found",'nonSynt') unless $_ =~ /^#/;;
-		}
-		
-		close(FilesAndDirsDBFileS);
-
-		
 		
 		#Apache account name
 		my @apcheUserNames = (
@@ -786,19 +864,65 @@ sub Standard{ #some standard stuff
 		}
 		doneThumbs:
 		undef($getThumbs);
+		
+		#Apache content negotiation
+		foreach my $negoTest ("robots", "index", "favicon"){
+			@NegoHeaders = getHeaders($ua->get("http://$Host/$negoTest")->as_string);
+			foreach (@NegoHeaders){
+				if($_ =~ /vary:( |)negotiate/i){
+					print "[+] $Host allows Apache content negotiation\n";
+				}
+			}
+		}
+		
+		# common sensitive shtuff
+		open(FilesAndDirsDBFileS, "<", "DB/small-tests.db");
+		
+		while(<FilesAndDirsDBFileS>){
+			dataBaseScan($_,'',"Sensitive item found",'nonSynt') unless $_ =~ /^#/;
+		}
+		
+		close(FilesAndDirsDBFileS);
 }
 
 
 
 
 sub defaultFiles{
-	open(defaultFilesDB, "<", "DB/defaultFiles.db");
+	my @Platfroms;
 	
-	while(<defaultFilesDB>){
-		dataBaseScan($_,'','Default File Found','Synt') unless $_ =~ m/^#/;
+	push(@Platfroms, 'DB/Apache.db')                if($Df =~ m/apache/i);
+	push(@Platfroms, 'DB/Frontpage.fuzz.txt')       if($Df =~ m/Frontpage/i);
+	push(@Platfroms, 'DB/IIS.fuzz.txt')             if($Df =~ m/IIS/i);
+	push(@Platfroms, 'DB/Oracle9i.fuzz.txt')        if($Df =~ m/Oracle9i/i);
+	push(@Platfroms, 'DB/Weblogic.fuzz.txt')        if($Df =~ m/Weblogic/i);
+	push(@Platfroms, 'DB/Websphere.fuzz.txt')       if($Df =~ m/Websphere/i);
+	push(@Platfroms, 'DB/CGI_Microsoft.fuzz.txt')   if($Df =~ m/MicrosoftCGI/i);
+	
+	
+	if($Df =~ m/all/i or defined $e) {
+		@Platfroms = (
+			'DB/Apache.db',
+			'DB/Frontpage.fuzz.txt',
+			'DB/IIS.fuzz.txt',
+			'DB/Oracle9i.fuzz.txt',
+			'DB/Weblogic.fuzz.txt',
+			'DB/Websphere.fuzz.txt',
+			'DB/CGI_Microsoft.fuzz.txt',
+		);
 	}
+	
+	foreach my $Platfrom (@Platfroms){
+		open(defaultFilesDB, "<", "$Platfrom");
+		
+		print "[+] Scanning for default files with database: $Platfrom\n";
+		
+		while(<defaultFilesDB>){
+			dataBaseScan($_,'','Default File Found','nonSynt') unless $_ =~ m/^#/;
+		}
 
-	close(defaultFilesDB);
+		close(defaultFilesDB);
+	}
 }
 
 
@@ -820,21 +944,13 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.net
 	print "[-] -Cp takes awhile....\n";
 	my @cmsPluginDBlist;
-	if(defined $e) { $cmsPlugins = "all"; }
 	
-	if($cmsPlugins =~ m/dp/i){
-		push(@cmsPluginDBlist, 'DB/drupal_plugins.db');
-	}
+	push(@cmsPluginDBlist, 'DB/drupal_plugins.db')  if($cmsPlugins =~ m/dp/i);
+	push(@cmsPluginDBlist, 'DB/joomla_plugins.db')  if($cmsPlugins =~ m/jm/i);
+	push(@cmsPluginDBlist, 'DB/wp_plugins.db')      if($cmsPlugins =~ m/wp/i);
 	
-	if($cmsPlugins =~ m/jm/i){
-		push(@cmsPluginDBlist, 'DB/joomla_plugins.db');
-	}
 	
-	if($cmsPlugins =~ m/wp/i){
-		push(@cmsPluginDBlist, 'DB/wp_plugins.db');
-	}
-	
-	if($cmsPlugins =~ m/all/i ){
+	if($cmsPlugins =~ m/all/i or defined $e){
 		@cmsPluginDBlist = ('DB/drupal_plugins.db', 'DB/joomla_plugins.db', 'DB/wp_plugins.db');
 	}
 	
@@ -881,27 +997,19 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 
 sub webServices{
-	sub WScontent{ # match page content with known services related
-		my $webServicesTestPage = shift;
+	# match page content with known services related
+	my $webServicesTestPage = $ua->get("http://$Host/")->decoded_content;
 		
-		open(webServicesDB, "<", "DB/web-services.db");
+	open(webServicesDB, "<", "DB/web-services.db");
 		
-		while(<webServicesDB>){
-			dataBaseScan($_,$webServicesTestPage,'Web service Found','match') unless $_ =~ /^#/;
-		}
-
-		close(webServicesDB);
+	while(<webServicesDB>){
+		dataBaseScan($_,$webServicesTestPage,'Web service Found','match') unless $_ =~ /^#/;
 	}
+
+	close(webServicesDB);
 	
-	WScontent($ua->get("http://$Host/")->decoded_content);
-	faviconMD5(); # i'll just make a new sub
-	cms();
-}
-
-
-
-
-sub faviconMD5{ # thanks to OWASP for favicon fingerprints
+	
+	
 	require Digest::MD5;
 	
 	my @favArry = (
@@ -922,7 +1030,7 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 			my $checksum = $MD5->add($favicon->content)->hexdigest; #make checksum
 
 			foreach my $faviconMD5String (@faviconMD5db){
-				dataBaseScan($faviconMD5String,$checksum,'Web service Found (favicon.ico)','match');
+				dataBaseScan($faviconMD5String,$checksum,'Web service Found (favicon fingerprint)','match');
 			}
 			
 		}
@@ -931,16 +1039,12 @@ sub faviconMD5{ # thanks to OWASP for favicon fingerprints
 	close(faviconMD5DB);
 	undef(@faviconMD5db);
 	no Digest::MD5; #unload this module
-}
-
-
-
-
-sub cms{ # cms default files with version info
+	
+	
 	open(cmsDB, "<", "DB/CMS.db");
 	
 	while(<cmsDB>){
-		dataBaseScan($_,'','Web service Found (cms)','Synt') unless $_ =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
+		dataBaseScan($_,'','Web service Found','Synt') unless $_ =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
 	}
 	
 	close(cmsDB);
@@ -955,7 +1059,6 @@ sub interesting{ # emails, plugins and such
 	my $PageContentType = shift;
 	my $FoundInter = 0;
 	
-		$mineShaft =~ s/.*?\n\n//; #remove headers
 		
 		my @InterestingStringsFound;
 		my @IndexData;
@@ -970,7 +1073,7 @@ sub interesting{ # emails, plugins and such
 								'\/templates\/;template',
 								'\/_vti_;IIS Default Dir/File',
 								'$Host\/~;Apache User Dir', # Apache Account
-								'\w@.*?\.(com|org|net|tv|uk|au|ro|ca|xxx|edu|mil|gov|biz|info|int|tel|jobs|co|pro);Email', #emails
+								'@.*?\.(com|org|net|tv|uk|au|ro|ca|xxx|edu|mil|gov|biz|info|int|tel|jobs|co|pro);Email', #emails
 								'(\t| |\n)@.*?\.(com|uk|au);maybe Twitter Account',
 								'<!--#;Server Side Include', #SSI
 								'fb:admins;Facebook fbids',
@@ -1062,6 +1165,19 @@ sub Ninja{ # total number of reqs sent: 6
 	my $ninjaTestPagee = $ua->get("http://$Host/");
 	bannerGrab($ninjaTestPagee->as_string);
 	sleep(int((rand(3)+2))); # pause for a random amount of time
+	
+	my @tit = getHeaders($ninjaTestPagee);
+	foreach my $getTitle(@tit){
+		if($getTitle =~ m/Title:/i) {
+			$getTitle =~ s/Title://i;
+			print "[+] HTTP Title: $getTitle\n";
+		}
+		if($getTitle =~ m/^Date:/i) {
+			$getTitle =~ s/Date://i;
+			print "[+] HTTP Date: $getTitle\n";
+		}
+	}
+	
 	faviconMD5();
 	sleep(int((rand(3)+2)));
 	Robots();
@@ -1097,6 +1213,14 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 	my $DomainOnly = $Host;
 	my $FindCount = 0;
 	
+	if($Host =~ /^(\d\d\d|\d\d|\d)\.(\d\d\d|\d\d|\d)\.(\d\d\d|\d\d|\d)\.(\d\d\d|\d\d|\d)$/){
+		my $Opt = PromtUser("[-] Host appears to be an IP Address\n[?] would you like me to Cancel -Sd (y/n) ? ");
+
+		if($Opt =~ /y/i) {
+			goto cancelSD;
+		}
+	}
+	
 	if($DomainOnly =~ m/.*?\..*?\./i) { # if subdomain
 		$DomainOnly =~ s/.*?\.//; #remove subdomain: blah.ws.com -> ws.com
 	}
@@ -1125,7 +1249,8 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 	} else {
 		print "[+] $FindCount SubDomains Found\n";
 	}
-
+	
+	cancelSD:
 }
 
 
