@@ -17,10 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.4.2
+#VERSION 1.4.3
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n[+] Web-Sorrow v1.4.2 remote enumeration security tool\n";
+	print "\n[+] Web-Sorrow v1.4.3 remote enumeration security tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -485,7 +485,7 @@ sub makeRequest{
 		if($Testreq->is_success) {
 			if($databaseContextt eq "Synt") {
 			
-				print "[+] $scanMSGG ($MSGG): \"$JustDirDBB\"\n";
+				print "[+] $scanMSGG - $MSGG: \"$JustDirDBB\"\n";
 			
 			} else {
 			
@@ -744,7 +744,7 @@ sub Standard{ #some standard stuff
 		my @badexts;
 		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall');
 		foreach my $Extention (@webExtentions){
-			my $check200 = $ua->get("http://$Host/$testErrorString" . genErrorString());
+			my $check200 = $ua->get("http://$Host/$testErrorString" . \&genErrorString());
 			
 			if($check200->is_success) {
 				push(@badexts, "\"$Extention\" ");
@@ -862,15 +862,17 @@ sub Standard{ #some standard stuff
 			foreach (@NegoHeaders){
 				if($_ =~ /vary:( |)negotiate/i){
 					print "[+] $Host allows Apache content negotiation\n";
+					goto lastNego;
 				}
 			}
 		}
+		lastNego:
 		
 		# common sensitive shtuff
 		open(FilesAndDirsDBFileS, "<", "DB/small-tests.db");
 		
 		while(<FilesAndDirsDBFileS>){
-			dataBaseScan($_,'',"Sensitive item found",'nonSynt') unless $_ =~ /^#/;
+			dataBaseScan($_,'',"Sensitive Item found",'Synt') unless $_ =~ /^#/;
 		}
 		
 		close(FilesAndDirsDBFileS);
@@ -989,18 +991,21 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 sub webServices{
 	# match page content with known services related
-	my $webServicesTestPage = $ua->get("http://$Host/")->decoded_content;
-		
-	open(webServicesDB, "<", "DB/web-services.db");
-		
-	while(<webServicesDB>){
-		dataBaseScan($_,$webServicesTestPage,'Web service Found','match') unless $_ =~ /^#/;
-	}
+	sub WScontent{
+		my $webServicesTestPage = shift;
+			
+		open(webServicesDB, "<", "DB/web-services.db");
+			
+		while(<webServicesDB>){
+			dataBaseScan($_,$webServicesTestPage,'Web service Found','match') unless $_ =~ /^#/;
+		}
 
-	close(webServicesDB);
+		close(webServicesDB);
+	}
 	
+	WScontent($ua->get("http://$Host")->decoded_content);
 	
-	
+
 	require Digest::MD5;
 	
 	my @favArry = (
@@ -1072,6 +1077,7 @@ sub interesting{ # emails, plugins and such
 								'<\?php;php code',
 								'\/_layouts;Sharepoint',
 								'It works!;maybe default apache splash screen',
+								'var\/www;linux web dir',
 								);
 
 		foreach my $checkInterestingSting (@interestingStings){
