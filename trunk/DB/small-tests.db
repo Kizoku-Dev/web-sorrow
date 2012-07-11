@@ -16,142 +16,145 @@
 # and parsing varius databases.
 # This is basicly a bunch of sensitve things from log files to cgi dirs
 #
-xmlrpc.php
-admin
-public_html/robots.txt
-INSTALL.mysql.txt
-INSTALL.pgsql.txt
-install.txt
-INSTALL.txt
-INSTALL.TXT
-admincp.php
-STATUS.txt
-web.xml
-web.config
-Web.config
-lang/web.config
-modules/web.config
-plugins/web.config
-config.ini
-config.php
-configuration.ini
-settings.php
-settings.html
-_vti_inf.html
-_vti_info.html
-spamlog.log
-Version.aspx
-email.htm
-pass.txt
-password.txt
-passwords.txt
-passwd.txt
-passwordlist.txt
-Pass.txt
-Password.txt
-Passwords.txt
-Passwd.txt
-Passwordlist.txt
-pass.txt
-passWord.txt
-passWords.txt
-passWD.txt
-passwordList.txt
-www.sql
-ids_log.php
-XSQLConfig.xml
-PhpInfo.php
-PHPinfo.php
-PHPINFO.php
-phpInfo.php
-info.php
-phpinfo.php
-phpinfo.php3
-php.ini
-include/config.inc.php
-access.log
-ip.txt
-html/cgi-bin/
-cgi-bin/
-cgi-sys/
-CGI-BIN/
-cgi-bin2/
-cgibin/
-cgi-local/
-cgi/
-php-bin/
-fcgi-bin/
-is-bin/
-java-sys/
-adm-bin/
-cgi-win/
-cgis/
-cgi-shl/
-cgi-dos/
-cgi-perl/
-cgi-exe/
-protected_access/
-restricted_access/
-Remote-Access/
-Remote_Execution/
-remote-entry/
-remote_adm/
-ActiveDirectoryRemoteAdminScripts/
-Remote-Administrator/
-includes/
-include/
-installation/
-bin/
-Bin/
-xmlrpc
-logs/
-inc/
-config/
-_vti_cnf/
-_vti_log/
-_vti_pvt/
-_vti_bin/
-_vti_txt/
-email/
-bmail/
-bml_email/
-xmail/
-_temp/
-conf/
-config/
-configuration/
-myconfigs/
-wp-config/
-ip_configs/
-webconfig/
-web_config/
-server-status/
-sys_log/
-syslog/
-LOGS/
-LOG/
-Logfiles/
-access-log/
-access_logs/
-wwwlogs/
-_log/
-accesslog/
-log_data/
-xmllogs/
-site-log/
-web_scripts/
-webapp_data/
-usr-bin/
-Passwd_Files/
-wlan_webauth/
-sqli/
-doc/
-docs/
-system/
-bandwidth/
-weblogic
-_private/
-humans.txt
-dvwa/
-mutillidae/
-winnie_the_poo/
+xmlrpc.php;yep
+admin;admin area
+public_html/robots.txt;alternitive tobots.txt
+INSTALL.mysql.txt;mySQL info
+INSTALL.pgsql.txt;postgreSQL info
+install.txt;may contain software version
+INSTALL.txt;may contain software version
+INSTALL.TXT;may contain software version
+admincp.php;admin area
+STATUS.txt;may contain info
+web.xml;may contain Java info
+web.config;configuation file
+Web.config;configuation file
+lang/web.config;configuation file
+modules/web.config;configuation file
+plugins/web.config;configuation file
+config.ini;configuation file
+config.php;configuation file
+configuration.ini;configuation file
+settings.php;configuation file
+settings.html;configuation file
+_vti_inf.html;Fronpage or ISS default file
+_vti_info.html;Fronpage or ISS default file
+spamlog.log;hmmmm
+Version.aspx;may contain version info
+email.htm;hmmmm
+pass.txt;contains passwords or usernames
+password.txt;contains passwords or usernames
+passwords.txt;contains passwords or usernames
+passwd.txt;contains passwords or usernames
+passwordlist.txt;contains passwords or usernames
+Pass.txt;contains passwords or usernames
+Password.txt;contains passwords or usernames
+Passwords.txt;contains passwords or usernames
+Passwd.txt;contains passwords or usernames
+Passwordlist.txt;contains passwords or usernames
+pass.txt;contains passwords or usernames
+passWord.txt;contains passwords or usernames
+passWords.txt;contains passwords or usernames
+passWD.txt;contains passwords or usernames
+passwordList.txt;contains passwords or usernames
+accounts.txt;contains passwords or usernames
+usernames.txt;contains passwords or usernames
+passwords/;contains passwords or usernames
+Passwords/;contains passwords or usernames
+passwd/;contains passwords or usernames
+passwordlist/;contains passwords or usernames
+passwordlists/;contains passwords or usernames
+www.sql;may contain SQL info
+ids_log.php;ids log
+XSQLConfig.xml;configuation file
+PhpInfo.php;PHP information
+PHPinfo.php;PHP information
+PHPINFO.php;PHP information
+phpInfo.php;PHP information
+info.php;PHP information
+phpinfo.php;PHP information
+phpinfo.php3;PHP information
+php.ini;PHP information
+include/config.inc.php;PHP information
+access.log;access log
+ip.txt;may contain IPs
+html/cgi-bin/;CGI dir
+cgi-bin/;CGI dir
+cgi-sys/;CGI dir
+CGI-BIN/;CGI dir
+cgi-bin2/;CGI dir
+cgibin/;CGI dir
+cgi-local/;CGI dir
+cgi/;CGI dir
+php-bin/;CGI dir
+fcgi-bin/;CGI dir
+is-bin/;CGI dir
+java-sys/;Java dir
+adm-bin/;CGI dir
+cgi-win/;CGI dir
+cgis/;CGI dir
+cgi-shl/;CGI dir
+cgi-dos/;CGI dir
+cgi-perl/;CGI dir
+cgi-exe/;CGI dir
+protected_access/;Potected area
+restricted_access/;Potected area
+Remote-Access/;hmmmm
+Remote_Execution/;hmmmm
+remote-entry/;hmmm
+remote_adm/;Potected area
+ActiveDirectoryRemoteAdminScripts/;admin area
+Remote-Administrator/;admin area
+includes/;may contain source code
+include/;may contain source code
+installation/;install dir
+bin/;may contain programs
+Bin/;may contain programs
+xmlrpc;yep
+logs/;logs
+inc/;may contain source code
+config/;configuration
+_vti_cnf/;Fronpage or ISS default file
+_vti_log/;Fronpage or ISS default file
+_vti_pvt/;Fronpage or ISS default file
+_vti_bin/;Fronpage or ISS default file
+_vti_txt/;Fronpage or ISS default file
+_temp/;this might be worth checking out
+conf/;configuation dir
+config/;configuation dir
+configuration/;configuation dir
+myconfigs/;configuation dir
+wp-config/;configuation dir
+ip_configs/;configuation dir
+webconfig/;configuation dir
+web_config/;configuation dir
+server-status/;Apache information
+sys_log/;system logs
+syslog/;system logs
+LOGS/;log files
+LOG/;log files
+Logfiles/;log files
+access-log/;log files
+access_logs/;log files
+wwwlogs/;log files
+_log/;log files
+accesslog/;log files
+log_data/;log files
+xmllogs/;log files
+site-log/;log files
+web_scripts/;hmmmm
+webapp_data/;hmmmm
+usr-bin/;user bin
+Passwd_Files/;contains password
+wlan_webauth/;hmmmm
+sqli/;sql dir
+doc/;documentation
+docs/;documentation
+system/;hmmmm
+bandwidth/;hmmmmm
+weblogic/;weblogic install path
+_private/;hmmmm
+humans.txt;may contain something insteresting
+dvwa/;Damn vulnerable web app
+mutillidae/;vulnerable web app
+winnie_the_poo/;oh bother
