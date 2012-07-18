@@ -20,7 +20,8 @@ http://www.activestate.com/activeperl
 or here
 http://strawberryperl.com/
 
-It would also be a good idea to update all your modules
+It would also be a good idea to update all your modules. You can do this easily with a script i've
+included in the package
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -35,8 +36,9 @@ output categorys
 
 [x]  something has been canceled or stoped
 [-]  An issue but not allways an error
-[+]  Infromation. usually signifying when something has been found
+[+]  usually signifying when something has been found
 [?]  Requires user input
+[*]  Informational
 
 ------------------------------------------------------------------------------------------------------------
 
