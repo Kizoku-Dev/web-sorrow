@@ -17,10 +17,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#VERSION 1.4.3
+#VERSION 1.4.4
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-	print "\n[+] Web-Sorrow v1.4.3 remote enumeration security tool\n";
+	print "\n[+] Web-Sorrow v1.4.4 remote enumeration security tool\n";
 
 	use LWP::UserAgent;
 	use LWP::ConnCache;
@@ -47,7 +47,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		$ua->default_headers->header('Accept-Encoding' => 'gzip, deflate');# compresses http responces from host (faster)
 		$ua->max_redirect(1); # if set to 0 it messes up directory indexing
 		$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.3) Gecko/20010801");
-
+		$ua->agent( RandomUA() ) if defined $randUA;
 
 		GetOptions(
 			"host=s"    => \$Host,            # host ip or domain
@@ -70,6 +70,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			"d=s"       => \my $Dir,          # scan within this dir
 			"dp"        => \my $doPasive,     # do passive
 			"fuzzsd"    => \my $fuzzsd,       # fuzz source disclosure
+			"Sfd"       => \my $Sfd,          # Small Files dirs Enum
+			"Rua"       => \my $randUA,       # random UA
 		);
 		
 		
@@ -94,6 +96,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		if(defined $ProxyServer) {
 			print "[+] Proxy: $ProxyServer\n";
 		}
+		
 		print "[+] Start Time: " . localtime() . "\n";
 		print "=" x 70 . "\n";
 
@@ -105,11 +108,13 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		}
 
 		if(defined $ProxyServer) {
-			$ua->proxy('http',"http://$ProxyServer"); # always make sure to put this first, lest we send un-proxied packets
+			$ua->proxy(['http', 'https', 'gopher'],"http://$ProxyServer"); # always make sure to put this first, lest we send un-proxied packets
 		}
+		
 		if(defined $RangHeader) {
 			$ua->default_headers->header('Range' => 'bytes 0-1');
 		}
+		
 		if(defined $shdw) {
 			print "[-] The cached pages MAYBE out of date so the results maynot be perfect\n";
 			$Host = ShadowScan();
@@ -157,6 +162,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 			if(defined $S)           { Standard();            }
 			if(defined $nin)         { Ninja();               }
 			if(defined $auth)        { auth();                }
+			if(defined $Sfd)         { SmallFdEnum();         }
 			if(defined $Df)          { defaultFiles();        }
 			if(defined $cmsPlugins)  { cmsPlugins();          }
 			if(defined $Ws)          { webServices();         }
@@ -203,21 +209,22 @@ Remember to check for updates http://web-sorrow.googlecode.com/
 Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)] [OTHER]
 
 HOST OPTIONS:
-    -host [host]     -- Defines host to scan or a list separated by semicolons
-    -port [port num] -- Defines port number to use (Default is 80)
-    -proxy [ip:port] -- Use an HTTP proxy server
+    -host [host]      -- Defines host to scan or a list separated by semicolons
+    -port [port num]  -- Defines port number to use (Default is 80)
+    -proxy [ip:port]  -- Use an HTTP, HTTPS, or gopher proxy server
 
 
 SCANS:
     -S       --  Standard set of scans including: agresive directory indexing,
                  Banner grabbing, Language detection, robots.txt,
                  HTTP 200 response testing, Apache user enum, SSL cert,
-                 Mobile page testing, sensitive items scanning, and
-                 thumbs.db scanning
+                 Mobile page testing, sensitive items scanning,
+                 thumbs.db scanning, and content negotiation
     -auth    --  Scan for login pages, admin consoles, and email webapps
     -Cp [dp | jm | wp | all] scan for cms plugins.
                  dp = drupal, jm = joomla, wp = wordpress 
     -Fd      --  Scan for common interesting files and dirs (Bruteforce)
+    -Sfd     --  Very small files and dirs enum (for the sake of time)
     -Sd      --  BruteForce Subdomains (host given must be a domain. Not an IP)
     -Ws      --  Scan for Web Services on host such as: cms version info, 
                  blogging services, favicon fingerprints, and hosting provider
@@ -236,6 +243,7 @@ OTHER:
     -I       --  Passively find interesting strings in responses (results may
                  contain partial html)
     -ua [ua] --  Useragent to use. put it in quotes. (default is firefox linux)
+    -Rua     --  Generate a new random UserAgent per request
     -R       --  Only request HTTP headers (ranges and head reqs).
                  This is much faster but some features and capabilities
                  may not work with this option. But it's perfect when
@@ -250,6 +258,7 @@ OTHER:
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
+    perl Wsorrow.pl -host nyan.cat -Fd -fuzzsd
     perl Wsorrow.pl -host nationalcookieagency.mil -Cp dp,jm -ua "script w/ the munchies"
     perl Wsorrow.pl -host chatrealm.us -d /wordpress -Cp wp
     perl Wsorrow.pl -host 66.11.227.35 -port 8080 -proxy 129.255.1.17:3128 -S -Ws -I
@@ -309,6 +318,9 @@ sub analyzeResponse{ # heres were most of the smart is...
 									'nothing found',
 									'Request aborted',
 									'no such page',
+									'no se encontr.',# spanish
+									'pas trouv.e',# french
+									'nicht gefunden',# german
 									'just calm down. 420',
 		);
 		
@@ -336,15 +348,15 @@ sub analyzeResponse{ # heres were most of the smart is...
 		}
 		
 
-		my @analHeaders = getHeaders($CheckResp); 
+		
 			
-		foreach my $analHString (@analHeaders){
+		foreach my $analHString ( getHeaders($CheckResp) ){
 			study $analHString;
 			#the page is empty?
 			if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i){  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
 			
 			#auth page checking
-			if($analHString =~ m/www-authenticate:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" HTTP basic auth\n";  }
+			if($analHString =~ m/www-authenticate:/i){  print "[+] Item \"$checkURL\" uses HTTP basic auth (www-authenticate)\n";  }
 			
 			#a hash?
 			if($analHString =~ m/Content-MD5:/i){  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
@@ -387,6 +399,31 @@ sub getHeaders{ #simply extract http headers
 		return(@HeadersRetu);
 }
 
+sub RandomUA{
+	
+	my @UAlist = (
+		"Mozilla/3.0 (compatible; Opera/3.0; Windows 3.1) v3.1",
+		"Mozilla/3.0 (compatible; Opera/3.0; Windows 95/NT4) 3.2",
+		"Mozilla/3.01 (compatible; Netbox/3.5 R92; Linux 2.2)",
+		"Mozilla/4.0 (compatible; MSIE 4.01; Windows 95)",
+		"Mozilla/4.05 (Macintosh; I; 68K Nav)",
+		"Mozilla/4.05 (Macintosh; I; PPC Nav)",
+		"Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/xxx.x (KHTML like Gecko) Safari/12x.x",
+		"Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:x.x.x) Gecko/20041107 Firefox/x.x",
+		"Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:x.xx) Gecko/20030504 Mozilla Firebird/0.6",
+		"Opera/9.0 (Windows NT 5.1; U; en)",
+		"Opera/9.00 (Windows NT 5.1; U; de)",
+		"Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (FM Scene 4.6.1)",
+		"Mozilla/5.0 (X11; U; Linux 2.4.2-2 i586; en-US; m18) Gecko/20010131 Netscape6/6.01",
+		"Mozilla/5.0 (X11; U; Linux i686; de-AT; rv:1.8.0.2) Gecko/20060309 SeaMonkey/1.0",
+		"Mozilla/5.0 (X11; U; Linux i686; en-GB; rv:1.7.6) Gecko/20050405 Epiphany/1.6.1 (Ubuntu) (Ubuntu package 1.0.2)",
+		"Mozilla/5.0 (X11; U; Linux i686; en-US; Nautilus/1.0Final) Gecko/20020408",
+		"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.3) Gecko/20010801",
+		);
+		
+		return( $UAlist[( int( rand(6) + rand( (6 + rand(5)) )  ) )] ); #random UserAgent
+}
+
 sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
 	my $StatusToMine = shift;
 	my $StatusFrom = shift;
@@ -400,10 +437,10 @@ sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
 		study $StatCode;
 		
 		if($StatCode =~ m/HTTP\/1\.(0|1) 401/i) {
-			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"401 authentication required\"\n";
+			print "[*] \"$StatusFrom\" HTTP status: \"401 authentication required\"\n";
 		}
 		if($StatCode =~ m/HTTP\/1\.(0|1) 403/i) {
-			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"403 Forbiden\" (exists but denied access)\n"; 
+			print "[*] Item \"$StatusFrom\" HTTP status: \"403 Forbiden\" (exists but denied access)\n"; 
 		}
 		if($StatCode =~ m/HTTP\/1\.(0|1) 424/i) {
 			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"424 Locked\"\n"; 
@@ -414,6 +451,7 @@ sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
 		if($StatCode =~ m/HTTP\/1\.(0|1) 509/i) {
 			print "[-] Item \"$StatusFrom\" responded with HTTP status: \"509 Bandwidth Limit Exceeded\" Try -ninja\n"; 
 		}
+		if($StatCode =~ m/HTTP\/1\.(1|0) 30(1|2|7)/i){ print "[-] Item \"$checkURL\" redirects to something. header: \"$analHString\"\n"; }
 		
 		ErrorStrings($StatusToMine, $StatusFrom);
 		
@@ -461,7 +499,11 @@ sub dataBaseScan{ # use a database for scanning.
 				push(@FoundMatchItems, $MSG);
 			
 				unless($FoundBefor) { #prevents double output
-					print "[+] $scanMSG: $MSG\n";
+					unless($scanMSG eq ""){
+						print "[+] $scanMSG: $MSG\n";
+					} else {
+						print "[+] $MSG\n";
+					}
 				}
 			}
 		}
@@ -478,18 +520,39 @@ sub makeRequest{
 			my $Testreq = $ua->head("http://$Host" . $JustDirDBB)
 			
 		}
-	
+		
+		$ua->agent( RandomUA() ) if defined $randUA;
+		
 		my $Testreq = $ua->get("http://$Host" . $JustDirDBB) unless defined $RangHeader;
 		
+		if($Testreq->code == 401 or $Testreq->code == 403){
+			print "STATUS CODE: " . $Testreq->code . " -> "; #I LOVE ALL CAPPS!!!!
+		}
 		
-		if($Testreq->is_success) {
+		if($Testreq->is_success or $Testreq->code == 401 or $Testreq->code == 403) {
 			if($databaseContextt eq "Synt") {
-			
-				print "[+] $scanMSGG - $MSGG: \"$JustDirDBB\"\n";
-			
+				
+				unless($scanMSGG eq "") {
+				
+					print "[+] $scanMSGG - $MSGG: \"$JustDirDBB\"\n";
+				
+				} else {
+				
+					print "[+] $MSGG: $JustDirDBB\n";
+					
+				}
+				
 			} else {
-			
-				print "[+] $scanMSGG: \"$JustDirDBB\"\n";
+
+				unless($scanMSGG eq "") {
+				
+					print "[+] $scanMSGG: $JustDirDBB\n";
+				
+				} else {
+				
+					print "[+] $JustDirDBB\n";
+					
+				}
 			
 			}
 				
@@ -498,7 +561,7 @@ sub makeRequest{
 			PassiveTests($Testreq->as_string, $JustDirDBB) if defined $doPasive;
 		}
 		
-		oddHttpStatus($JustDirDBB) if defined $doPasive; # can't put in repsonceAnalysis cuz of ->is_success
+		oddHttpStatus($Testreq->as_string, $JustDirDBB) if defined $doPasive; # can't put in repsonceAnalysis cuz of ->is_success
 		$Testreq = undef;
 		$JustDirDBB = undef;
 }
@@ -614,6 +677,7 @@ sub sourceDiscolsure{
 		);
 		
 		foreach $SDisAP (@SDisAttackPatterns){
+			$ua->agent( RandomUA() ) if defined $randUA;
 			my $SDisReq = $ua->get("http://$Host"."$PathToSDis"."$SDisAP");
 			if($SDisReq->is_success and $SDisReq->decoded_content =~ /(<\?php|&lt;\?php|#include <|#!\/usr|#!\/bin|import java\.|public class .+\{|<\%.+\%>|<asp:|package\s.+\;.*)/i) {
 				print "[+] Source Disclosure Found: \"$PathToSDis$SDisAP\"\n";
@@ -622,6 +686,7 @@ sub sourceDiscolsure{
 		
 		if($PathToDis =~ /asp$/){ # special asp test
 			$PathToDis =~ s/asp/%61%73%70/;
+			$ua->agent( RandomUA() ) if defined $randUA;
 			$SDisReq = $ua->get("http://$Host"."$PathToSDis");
 			if($SDisReq->decoded_content =~ /<asp:/) {
 				print "[+] Source Disclosure Found: \"$PathToSDis\"\n";
@@ -630,6 +695,7 @@ sub sourceDiscolsure{
 		}
 		
 		foreach $BeforPattern ("/...", "/", "/..%c0%9v.." ,"/..%c0%af..", ".%5c../..%5c", "/..%255c..%255c"){
+			$ua->agent( RandomUA() ) if defined $randUA;
 			$SDisReq = $ua->get("http://$Host".$BeforPattern."$PathToSDis");
 			if($SDisReq->decoded_content =~ /(<\?php|&lt;\?php|#include <|#!\/usr|#!\/bin|import java\.|public class .+\{|<\%.+\%>|<asp:|package\s.+\;.*)/i) {
 				print "[+] Source Disclosure Found: \"$BeforPattern$PathToSDis\"\n";
@@ -669,11 +735,11 @@ sub PassiveTests{
 
 
 sub Standard{ #some standard stuff
+		$ua->agent( RandomUA() ) if defined $randUA;
 		bannerGrab($ua->get("http://$Host/")->as_string);
 		
-		my @tit = getHeaders($ua->get("http://$Host/")->as_string);
 		sourceDiscolsure("/") if defined $fuzzsd or defined $e;
-		foreach my $getTitle(@tit){
+		foreach my $getTitle( getHeaders($ua->get("http://$Host/")->as_string) ){
 			if($getTitle =~ m/Title:/i) {
 				$getTitle =~ s/Title://i;
 				print "[+] HTTP Title: $getTitle\n";
@@ -685,7 +751,7 @@ sub Standard{ #some standard stuff
 		}
 		
 		#robots.txt
-		Robots();
+		Robots(); #for clean code
 		
 		my @findDirIndexing =  (
 						'/images',
@@ -714,6 +780,8 @@ sub Standard{ #some standard stuff
 						
 	
 		foreach my $IndexDir (@findDirIndexing){
+			$ua->agent( RandomUA() ) if defined $randUA;
+			
 			my $Getind = $ua->get("http://$Host" . $IndexDir);
 			MatchDirIndex($Getind->decoded_content, $IndexDir);
 		}
@@ -723,34 +791,28 @@ sub Standard{ #some standard stuff
 	
 		
 		# laguage checks
-		my $LangReq = $ua->get("http://$Host/");
-		my @langSpaceSplit = split(/ / ,$LangReq->decoded_content);
 		
-		my @langGate;
-		
-		foreach my $lineIDK (@langSpaceSplit){
+		foreach my $lineIDK ( split(/ /, $ua->get("http://$Host/")->decoded_content) ){
 			if($lineIDK =~ /lang=('|").*?('|")/i) {
-				$lineIDK =~ s/(\t|\n)//g; #make pretty
-				$lineIDK =~ s/(<.*|>.*)//g; #prevent html from sliping in
+				$lineIDK =~ s/(\t|\n)//g; $lineIDK =~ s/(<.*|>.*)//g; #make pretty
 				
-				unless($lineIDK =~ /lang=('|")('|")/) {
-					print "[+] Page Laguage found: $lineIDK\n"; last; # somtimes pages have like 4 or 5 so just find one
-				}
+				print "[+] Page Laguage found: $lineIDK\n"; last; # somtimes pages have like 4 or 5 so just find one
 			}
 		}
-		$LangReq = undef;
 		
 		# Some servers just give you a 200 with every req. lets see
-		my @badexts;
-		my @webExtentions = ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall');
-		foreach my $Extention (@webExtentions){
+		my $ThereIsBadExt = 0; my @badexts;
+		
+		foreach my $Extention ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall'){
+			$ua->agent( RandomUA() ) if defined $randUA;
 			my $check200 = $ua->get("http://$Host/$testErrorString" . \&genErrorString());
 			
-			if($check200->is_success) {
+			unless($check200->code =~ m/(404|301|502)/) {
 				push(@badexts, "\"$Extention\" ");
+				$ThereIsBadExt = 1;
 			}
 		}
-		if(defined $badexts[0]) { # if the page contains multi error just put em into the same string
+		if($ThereIsBadExt) { # if the page contains multi error just put em into the same string
 			print "[-] INTENTIONALLY bad requests sent with the file Extention(s) @badexts responded with odd status codes. any results from this server with those files extention(s) may be void\n";
 		}
 		$check200 = undef;
@@ -776,6 +838,7 @@ sub Standard{ #some standard stuff
 		# is ssl stuff
 		$ua->ssl_opts(verify_hostname => 1);
 		
+		$ua->agent( RandomUA() ) if defined $randUA;
 		my $sslreq = $ua->get("https://$Host/");
 		if($sslreq->is_success) {
 			print "[+] $Host is SSL capable\n";
@@ -795,7 +858,7 @@ sub Standard{ #some standard stuff
 			}
 			
 		}
-		$sslreq = undef;
+		$sslreq = undef; undef(@parseSSL);
 		$ua->ssl_opts(verify_hostname => 0);
 
 		
@@ -813,10 +876,12 @@ sub Standard{ #some standard stuff
 							'webadmin',
 							'manager',
 							'system',
+							'test',
 							'twighlighsparkle',
 							);
 		
 		foreach my $usrnm (@apcheUserNames){
+			$ua->agent( RandomUA() ) if defined $randUA;
 			my $ApcheUseNmTest = $ua->get("http://$Host/~" . $usrnm);
 			
 			if($ApcheUseNmTest->code == 200 or $ApcheUseNmTest->code == 403) {
@@ -824,7 +889,7 @@ sub Standard{ #some standard stuff
 				analyzeResponse($ApcheUseNmTest->as_string() ,"/~$usrnm");
 			}
 		}
-		$ApcheUseNmTest = undef;
+		$ApcheUseNmTest = undef; undef(@apcheUserNames);
 		
 		
 		#thumbs.db
@@ -844,7 +909,8 @@ sub Standard{ #some standard stuff
 		
 		foreach my $imageDir (@imageDirs){
 			foreach my $CapTumbs("thumbs.db","Thumbs.db"){
-				$getThumbs = $ua->get("http://$Host".$imageDir.$CapTumbs);
+				$ua->agent( RandomUA() ) if defined $randUA;
+				my $getThumbs = $ua->get("http://$Host".$imageDir.$CapTumbs);
 			
 				if($getThumbs->is_success) {
 					print "[+] $CapTumbs found. This suggests the host is running Windows\n";
@@ -854,10 +920,12 @@ sub Standard{ #some standard stuff
 			}
 		}
 		doneThumbs:
-		undef($getThumbs);
+		undef($getThumbs); undef(@imageDirs);
 		
 		#Apache content negotiation
 		foreach my $negoTest ("robots", "index", "favicon"){
+			$ua->agent( RandomUA() ) if defined $randUA;
+			
 			@NegoHeaders = getHeaders($ua->get("http://$Host/$negoTest")->as_string);
 			foreach (@NegoHeaders){
 				if($_ =~ /vary:( |)negotiate/i){
@@ -867,12 +935,14 @@ sub Standard{ #some standard stuff
 			}
 		}
 		lastNego:
+		undef(@NegoHeaders);
 		
 		# common sensitive shtuff
 		open(FilesAndDirsDBFileS, "<", "DB/small-tests.db");
+		print "[*] _______SENSITIVE FILES AND DIRS_______ [*]\n";
 		
 		while(<FilesAndDirsDBFileS>){
-			dataBaseScan($_,'',"Sensitive Item found",'Synt') unless $_ =~ /^#/;
+			dataBaseScan($_,'',"",'Synt') unless $_ =~ /^#/;
 		}
 		
 		close(FilesAndDirsDBFileS);
@@ -881,7 +951,7 @@ sub Standard{ #some standard stuff
 
 
 
-sub defaultFiles{
+sub defaultFiles{ #thanks to FuzzDB for most of the DB's
 	my @Platfroms;
 	
 	push(@Platfroms, 'DB/Apache.db')                if($Df =~ m/apache/i);
@@ -923,9 +993,10 @@ sub defaultFiles{
 
 sub auth{ # this DB is pretty good but needs more pazzaz
 	open(authDB, "<", "DB/login.db");
-
+	print "[*] _______ATHENTICATION AREAS_______ [*]\n";
+	
 	while(<authDB>){
-		dataBaseScan($_,'','Login Page Found','Synt') unless $_ =~ /^#/;
+		dataBaseScan($_,'',"",'Synt') unless $_ =~ /^#/;
 	}
 
 	close(authDB);
@@ -936,6 +1007,8 @@ sub auth{ # this DB is pretty good but needs more pazzaz
 
 sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.net
 	print "[-] -Cp takes awhile....\n";
+	print "[*] _______CMS PLUGINS_______ [*]";
+	
 	my @cmsPluginDBlist;
 	
 	push(@cmsPluginDBlist, 'DB/drupal_plugins.db')  if($cmsPlugins =~ m/dp/i);
@@ -971,13 +1044,13 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 	print "[-] -Fd takes awhile....\n";
 	my @FilesAndDirsDBlist = ('DB/raft-medium-files.db','DB/raft-medium-directories.db',);
 	
+	print "[*] _______ INTERESTING FILES AND DIRS BRUTEFORCE _______ [*]\n";
 	foreach my $FilesAndDirsDB (@FilesAndDirsDBlist){
-		print "[+] Testing Files And Dirs with Database: $FilesAndDirsDB\n";
 			
 		open(FilesAndDirsDBFile, "<", "$FilesAndDirsDB");
 		
 		while(<FilesAndDirsDBFile>){
-			dataBaseScan($_,'','Interesting File or Dir Found','nonSynt') unless $_ =~ /^#/;
+			dataBaseScan($_,'','','nonSynt') unless $_ =~ /^#/;
 		}
 
 		close(FilesAndDirsDBFile);
@@ -991,13 +1064,16 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 
 sub webServices{
 	# match page content with known services related
+	print "[*] _______WEB SERVICES_______ [*]\n";
+	
 	sub WScontent{
 		my $webServicesTestPage = shift;
 			
 		open(webServicesDB, "<", "DB/web-services.db");
-			
+		
+		
 		while(<webServicesDB>){
-			dataBaseScan($_,$webServicesTestPage,'Web service Found','match') unless $_ =~ /^#/;
+			dataBaseScan($_,$webServicesTestPage,'','match') unless $_ =~ /^#/;
 		}
 
 		close(webServicesDB);
@@ -1026,7 +1102,7 @@ sub webServices{
 			my $checksum = $MD5->add($favicon->content)->hexdigest; #make checksum
 
 			foreach my $faviconMD5String (@faviconMD5db){
-				dataBaseScan($faviconMD5String,$checksum,'Web service Found (favicon fingerprint)','match');
+				dataBaseScan($faviconMD5String,$checksum,'favicon fingerprint','match');
 			}
 			
 		}
@@ -1040,7 +1116,7 @@ sub webServices{
 	open(cmsDB, "<", "DB/CMS.db");
 	
 	while(<cmsDB>){
-		dataBaseScan($_,'','Web service Found','Synt') unless $_ =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
+		dataBaseScan($_,'','','Synt') unless $_ =~ /^#/; #this func can only be called when the DB uses the /dir;msg format
 	}
 	
 	close(cmsDB);
@@ -1154,7 +1230,7 @@ sub ErrorStrings{ #failing is the key here
 		}
 	
 }
-
+ 
 
 
 
@@ -1193,9 +1269,10 @@ sub Dirbuster{
 	print "[-] -Db takes awhile.... No joke. Go to the movies or something\n";
 
 	open(DirbustDBFile, "<", "DB/directory-list-2.3-big.db");
+	print "[*]  _______DIRBUSTER DIRECTORY BRUTEFORCE_______  [*]\n";
 	
 	while(<DirbustDBFile>){
-		dataBaseScan($_,'',"Directory found","nonSynt") unless $_ =~ /^#/;
+		dataBaseScan($_,'',"","nonSynt") unless $_ =~ /^#/;
 	}
 	
 	close(DirbustDBFile);
@@ -1223,6 +1300,7 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 	}
 	
 	open(SubDomainDB, "<", "DB/SubDomain.db");
+	print "[*] _______SUBDOMAIN BRUTEFORCE_______ [*]\n";
 	
 	while(<SubDomainDB>){
 		chomp $_;
@@ -1230,7 +1308,7 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 		my $TestSubDomain = inet_aton($SubDomainToRequest); # much more relieable then http requests for example smtp.blah.com will not respond with http 
 		
 		unless($TestSubDomain eq "") {
-			print "[+] SubDomain Found: $SubDomainToRequest\n";
+			print "[+] $SubDomainToRequest\n";
 			$FindCount++;
 		}
 		
@@ -1256,4 +1334,18 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 sub ShadowScan{
 	my $HostMutate = "webcache.googleusercontent.com/search?q=cache:" . "$Host";
 	return($HostMutate);
+}
+
+
+
+
+sub SmallFdEnum{
+	open(SmallFDEnum, "<", "DB/small-files-dirs-enum.db");
+	print "[*]  _______QUICK FILES AND DIRS ENUM_______  [*]\n";
+	
+	while(<SmallFDEnum>){
+		dataBaseScan($_,'',"","nonSynt") unless $_ =~ /^#/;
+	}
+	
+	close(SmallFDEnum);
 }
