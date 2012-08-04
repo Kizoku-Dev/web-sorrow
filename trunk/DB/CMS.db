@@ -15,7 +15,7 @@
 # CMS.db was painstaekingly handcarved from a plethera of tar's and zip's
 # and is used to enumerate Content Mangagement Systems
 #
-/wordpress;maybe CMS installation path
+/wordpress/;maybe CMS installation path
 /WordPress;maybe CMS installation path
 /wp;maybe CMS installation path
 /WP;maybe CMS installation path
@@ -41,7 +41,7 @@
 /styles/prosilver/style.cfg;contains phpBB info
 /concrete/config/banned_words.txt;concrete default file found. funny as hell!
 /config/banned_words.txt;concrete default file found. funny as hell!
-/INSTALL;MAYBE mediawiki info
+/INSTALL;MAYBE mediawiki or phpMyAdmin info
 /HISTORY;MAYBE mediawiki info
 /docs/export-demo.xml;mediawiki info
 /docs/maintenance.txt;mediawiki info
@@ -64,7 +64,7 @@
 /django_lfc.egg-info/vPKG-INFO;django-lfc verions info
 /lfc/fixtures/superuser.xml;django-lfc this looks REALLY interesting
 /version.txt;MAYBE jojo cms info
-/ChangeLog;MAYBE nanoblogger info
+/ChangeLog;MAYBE nanoblogger, phpMyAdmin, or Typo3 info
 /manager/VERSION;PlumeCMS info
 /Install_dotCMS_Release.txt;DotCMS info
 /history.txt;MAYBE contains CMS info
@@ -80,8 +80,8 @@
 /installation.md;MAYBE contains CMS info
 /readme.txt;MAYBE contains CMS info
 /readme.md;MAYBE contains CMS info
-/readme;MAYBE contains CMS info
-/README;MAYBE contains CMS info
+/readme;MAYBE contains phpMyAdmin info
+/README;contains XMLnuke info or others
 /README.md;MAYBE contains CMS info
 /README.html;MAYBE contains CMS info
 /versions.txt;MAYBE contains CMS info
@@ -92,10 +92,31 @@
 /changelog.txt;MAYBE contains CMS info
 /changelog.md;MAYBE contains CMS info
 /changelog.html;MAYBE contains CMS info
-/CHANGELOG;MAYBE contains CMS info
-/ChangeLog;MAYBE contains Typo3 info
+/CHANGELOG;contains phpCMS info or others
 /doc/stable.version;tiki CMS info
 /tiki/doc/stable.version;tiki CMS info
 /CHANGES;MAYBE contains info
 /CHANGES.txt;MAYBE contains info
 /Updates.txt;maybe phplogin info
+/LICENSE.txt;may contain version info
+/License.txt;may contain version info
+/Install.txt;may contain Cuyahoga info or others
+/template.xml;may contain drakecms info
+/black/template.xml;drakecms info
+/cms/Web.config;maybe sql info
+/cms/design.htm;may contain gokryo info
+/cms.csproj;maybe gokryo info
+/cms/cms.csproj;maybe gokryo info
+/classes/gladius/README.TXT;gladiusDB info
+/gladius/README.TXT;gladiusDB info
+/README_VELOCE;may reveal CMS
+/version.php;laniuscms info
+/core/fragments/moduleInfo.phtml;maybe Lcms info
+/modules/TinyMCE/TinyMCEModuleInfo.php;Lcms or TinyMCE info
+/info.php;php info or others
+/_docs.en/readme.txt;Lithium cms info
+/mapix/mapix/doc/en/changes.html;mapix cms info
+/mapix/doc/en/changes.html;mapix cms info
+/doc/en/changes.html;mapix cms info
+/UPGRADE_README.txt;phpCMS info
+/teknoportal/readme.txt;teknoportal cms info
