@@ -17,11 +17,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# VERSION 1.4.6
+# VERSION 1.4.7
 # You can't enslave protocals. I dedicate this program to the EFF, anonymous, and all other internet freedom fighters.
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-		print "\n[+] Web-Sorrow v1.4.6 http enumeration security tool\n";
+		print "\n[+] Web-Sorrow v1.4.7 http enumeration security tool\n";
 
 		use LWP::UserAgent;
 		use LWP::ConnCache;
@@ -196,7 +196,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 
 				print "=" x 70 . "\n";
-				print "[+] Done :'(  -  Finsh Time: " . localtime . "\n";
+				print "[+] Done :'(  -  Finsh Time: " . localtime() . "\n";
 
 
 
@@ -373,7 +373,7 @@ sub analyzeResponse{ # heres were most of the smart is...
 				foreach my $analHString ( getHeaders($CheckResp) ) {
 						study $analHString;
 						#the page is empty?
-						if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i) {  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n";  }
+						if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i) {  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n" unless $checkURL eq "/java-sys/";  }
 						
 						#auth page checking
 						if($analHString =~ m/www-authenticate:/i) {  print "[+] Item \"$checkURL\" uses HTTP basic auth (www-authenticate)\n";  }
@@ -762,7 +762,7 @@ sub Standard{ #some standard stuff
 				#robots.txt
 				Robots(); #for clean code
 				
-				my @findDirIndexing = (
+				my @findDirIndexing = ( # very common dirs to check for dir indexing
 									'/images/',
 									'/imgs/',
 									'/img/',
@@ -780,15 +780,22 @@ sub Standard{ #some standard stuff
 									'/thumbnails/',
 									'/thumbs/',
 									'/scripts/',
+									'/script/',
 									'/files/',
 									'/js/',
+									'/javascript/',
+									'/javascripts/',
 									'/site/',
 									'/uploads/',
 									'/downloads/',
+									'/download/',
 									'/ajax/',
+									'/videos/',
+									'/porn/',
+									'/music/',
 				);
-												
-		
+				
+				
 				foreach my $IndexDir (@findDirIndexing) {
 						$ua->agent( RandomUA() ) if defined $randUA;
 						
@@ -813,7 +820,7 @@ sub Standard{ #some standard stuff
 				# Some servers just give you a 200 with every req. lets see
 				my $ThereIsBadExt = 0; my @badexts;
 				
-				foreach my $Extention ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall') {
+				foreach my $Extention ('.php','.html','.htm','.aspx','.asp','.jsp','.cgi','.pl','.cfm','.txt','.larywall','.') {
 						$ua->agent( RandomUA() ) if defined $randUA;
 						my $check200 = $ua->get("$URNtype://$Host/$testErrorString" . \&genErrorString());
 						
@@ -829,22 +836,22 @@ sub Standard{ #some standard stuff
 				undef(@badexts);
 				
 				
+				# mobile site test
 				my @mobiTest;
 				foreach ("Mozilla/5.0 (iPhone; U; CPU like Mac OS X; en) AppleWebKit/420+ (KHTML, like Gecko) Version/3.0" , "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.3) Gecko/20010801") {
 						$ua->agent($_);
 						push( @mobiTest, $ua->get("$URNtype://$Host/")->decoded_content );
 				}
-				$mobiTest[0] =~ s/<--.*-->//g; $mobiTest[1] =~ s/<--.*-->//g;
+				$mobiTest[0] =~ s/<--.*-->//g; $mobiTest[1] =~ s/<--.*-->//g; # some servers have time stamps in comments
 				
 				unless($mobiTest[0] eq $mobiTest[1]) {
 						print "[+] Index page reqested with an Iphone UserAgent is diferent then with a regular UserAgent. This Host may have a mobile site\n";
 				}
-				$mobilePage = undef; $regularPage = undef;
 				
 				if(defined $UserA) { # sets back to defined useragent
 						$ua->agent($UserA);
 				}
-				
+				$mobilePage = undef; $regularPage = undef;
 				
 				# is ssl stuff
 				$ua->ssl_opts(verify_hostname => 1);
@@ -859,7 +866,7 @@ sub Standard{ #some standard stuff
 								chomp($SSLheader);
 								
 								if($SSLheader =~ /client-ssl-cipher:/i) { $SSLheader =~ s/client-ssl-cipher://i; print "[+] SSL Cipher: $SSLheader\n"; }
-								if($SSLheader =~ /client-ssl-cert-issuer:/i) {#extract
+								if($SSLheader =~ /client-ssl-cert-issuer:/i) { # extract
 										$SSLheader =~ s/client-ssl-cert-issuer://i;
 										$SSLheader =~ s/.*\/O=//i;
 										$SSLheader =~ s/\/.*//;
@@ -903,7 +910,7 @@ sub Standard{ #some standard stuff
 				$ApcheUseNmTest = undef; undef(@apcheUserNames);
 				
 				
-				#thumbs.db
+				# thumbs.db test
 				my @imageDirs = (
 								'/images/',
 								'/img/',
@@ -995,7 +1002,7 @@ sub Standard{ #some standard stuff
 				foreach (@httpPorts){
 					my $portGet = $ua->get("$URNtype://$Host:$_/");
 					if($portGet->code == 200 or $portGet->code == 401 or $portGet->code == 403){
-						print "[+] Found open HTTP port: $_\n";
+						print "[+] OPEN HTTP server on port: $_\n";
 					}
 				}
 }
@@ -1103,7 +1110,7 @@ sub FilesAndDirsGoodies{ # databases provided by: raft team
 		
 		print "\n[*] _______INTERESTING FILES AND DIRS BRUTEFORCE_______ [*]\n";
 		foreach my $FilesAndDirsDB (@FilesAndDirsDBlist) {
-						
+				
 				open(FilesAndDirsDBFile, "<", "$FilesAndDirsDB");
 				
 				while(<FilesAndDirsDBFile>) {
@@ -1141,6 +1148,7 @@ sub webServices{
 		WScontent($ua->get("$URNtype://$Host")->decoded_content);
 		faviconMD5();
 		
+		
 		sub faviconMD5{
 				require Digest::MD5;
 				my $smartFav = 0;
@@ -1156,31 +1164,31 @@ sub webServices{
 				my @faviconMD5db = <faviconMD5DB>;
 				
 				@favHeadTest = getHeaders( $ua->get("$URNtype://$Host/")->as_string );
-				foreach (@favHeadTest){
+				foreach (@favHeadTest){ # here we try to smatly get the favicon
 						if( $_ =~ m/Link/i and $_ =~ m/\.ico/i ){
 								$_ =~ s/link:.*<//i;
 								$_ =~ s/>.*//i;
 								
 								favHash( $ua->get("$URNtype://$Host/$_")->content );
-								$smartFav = 1;
 						}
 				}
 				
-				unless($smartFav){ #guess favicon location if not in the headers
-						foreach my $favLocation (@favArry) {
-								my $favicon = $ua->get("$URNtype://$Host/$favLocation");
-								
-								if($favicon->is_success) {
-										favHash( $favicon->content );
-								}
-								
+				# find favicon location in the headers
+				foreach my $favLocation (@favArry) {
+						my $favicon = $ua->get("$URNtype://$Host/$favLocation");
+						
+						if($favicon->is_success) {
+								favHash( $favicon->content );
 						}
+						
 				}
+				
+				
 				sub favHash{
 						my $faviconCont = shift;
 						
 						my $MD5 = Digest::MD5->new;
-						my $checksum = $MD5->add($faviconCont)->hexdigest; #make checksum
+						my $checksum = $MD5->add($faviconCont)->hexdigest; # make checksum
 						
 						foreach my $faviconMD5String (@faviconMD5db) {
 								dataBaseScan($faviconMD5String, $checksum, 'Server information found via favicon fingerprint:', 'match');
@@ -1188,8 +1196,9 @@ sub webServices{
 				}
 				close(faviconMD5DB);
 				undef(@faviconMD5db);
-				no Digest::MD5; #unload this module
+				no Digest::MD5; # unload this module
 		}
+		
 		
 		open(cmsDB, "<", "DB/CMS.db");
 		
