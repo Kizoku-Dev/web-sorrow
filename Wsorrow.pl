@@ -17,11 +17,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# VERSION 1.4.7
+# VERSION 1.4.8
 # You can't enslave protocals. I dedicate this program to the EFF, anonymous, and all other internet freedom fighters.
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-		print "\n[+] Web-Sorrow v1.4.7 http enumeration security tool\n";
+		print "\n[+] Web-Sorrow v1.4.8 http enumeration security tool\n";
 
 		use LWP::UserAgent;
 		use LWP::ConnCache;
@@ -77,7 +77,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 						"intense"   => \my $intenseScan,  # like -e
 						"nyan"      => \my $nyancat,      # a prize for those who read the source
 				);
-				
+
 				
 				# usage
 				if($Host eq "none") {
@@ -112,6 +112,12 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 				$ua->agent($UserA) if(defined $UserA) ;
 				$ua->proxy(['http', 'https', 'gopher'],"http://$ProxyServer") if(defined $ProxyServer) ; # always make sure to put this first, lest we send un-proxied packets
 				$ua->default_headers->header('Range' => 'bytes=0-1') if(defined $RangHeader) ;
+				
+				if(defined $RangHeader and not defined $noRespAnal){
+					print "[*] you might want to use -nr with -R for a cleaner scan\n";
+					sleep(3);
+				}
+				
 				
 				if(defined $shdw) {
 						print "[-] The cached pages MAYBE out of date so the results maynot be perfect\n";
@@ -155,6 +161,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 								$Host = $Host . $Dir;
 						}
 						
+						
+						
 						# in order of aproximate finish times
 						if(defined $S)           { Standard()            ;}
 						if(defined $nin)         { Ninja()               ;}
@@ -184,19 +192,20 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 						}
 						
 						sub runIntense{
-							Standard();
-							auth();
-							webServices();
-							defaultFiles();
 							my $interesting;
 							my $fuzzsd;
 							my $doPasive;
+							Standard();
+							auth();
+							webServices();							
+							defaultFiles();
 						}
 				}
 
 
 				print "=" x 70 . "\n";
 				print "[+] Done :'(  -  Finsh Time: " . localtime() . "\n";
+
 
 
 
@@ -228,7 +237,8 @@ SCANS:
                  Banner grabbing, Language detection, robots.txt,
                  HTTP 200 response testing, Apache user enum, SSL cert,
                  Mobile page testing, sensitive items scanning,
-                 thumbs.db scanning, and content negotiation
+                 thumbs.db scanning, content negotiation, and non port 80
+                 server scanning
     -auth    --  Scan for login pages, admin consoles, and email webapps
     -Cp [dp | jm | wp | all] scan for cms plugins.
                  dp = drupal, jm = joomla, wp = wordpress 
@@ -537,7 +547,8 @@ sub makeRequest{
 		my $databaseContextt = shift;
 						
 				$ua->agent( RandomUA() ) if(defined $randUA);
-
+				
+				$JustDirDBB = $JustDirDBB . "/" unless $JustDirDBB =~ m/(\.|\/$)/; # make dir proper format
 				my $Testreq = $ua->get("$URNtype://$Host" . $JustDirDBB);
 				
 				if($Testreq->code == 401 or $Testreq->code == 403) {
@@ -562,7 +573,7 @@ sub makeRequest{
 								}
 						
 						}
-								
+						
 						analyzeResponse($Testreq->as_string, $JustDirDBB) unless(defined $noRespAnal);
 						sourceDiscolsure($JustDirDBB) if (defined $fuzzsd or defined $e);
 						PassiveTests($Testreq->as_string, $JustDirDBB);
@@ -637,7 +648,7 @@ sub Robots{
 		unless($roboTXT->is_error) {
 				my $Opt = PromtUser("[+] robots.txt found! This could be interesting!\n[?] would you like me to display it? (y/n) ? ");
 
-				if($Opt =~ /y/i) {
+				if($Opt =~ m/y/i) {
 						print "[+] robots.txt Contents: \n";
 						my $roboContent = $roboTXT->decoded_content;
 						while ($roboContent =~ /(\n\n|\t)/) {		$roboContent =~ s/(\n\n|\t)/\n/g;		} # cleaner. some robots have way to much white space
@@ -969,6 +980,7 @@ sub Standard{ #some standard stuff
 				my @httpPorts =(
 								66,
 								81,
+								631,
 								445,
 								457,
 								1080,
@@ -1022,7 +1034,7 @@ sub defaultFiles{ #thanks to FuzzDB for most of the DB's
 		push(@Platfroms, 'DB/CGI_Microsoft.fuzz.txt')   if($Df =~ m/MicrosoftCGI/i);
 		
 		
-		if($Df =~ m/all/i or defined $e) {
+		if($Df =~ m/all/i or defined $e or defined $intenseScan) {
 				@Platfroms = (
 								'DB/Apache.db',
 								'DB/Frontpage.fuzz.txt',
