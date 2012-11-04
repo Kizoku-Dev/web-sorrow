@@ -21,7 +21,7 @@
 # You can't enslave protocals. I dedicate this program to the EFF, anonymous, and all other internet freedom fighters.
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-		print "\n[+] Web-Sorrow v1.4.8 http enumeration security tool\n";
+		print "\n[+] Web-Sorrow v1.4.9 (early release) http enumeration security tool\n";
 
 		use LWP::UserAgent;
 		use LWP::ConnCache;
@@ -98,6 +98,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 						$ua->ssl_opts(verify_hostname => 1);
 				}
 				
+				$ua->default_headers->header('Accept' => '*.*, q=0.1');# bug reported by google code user aran.lora
 				$ua->default_headers->header('Accept-Encoding' => 'gzip, deflate') if(defined $Gzip);# compresses http responces from host (faster)
 
 				foreach ( split(/;/, $Host) ) { # if imput is more than one host do banner for each
@@ -111,7 +112,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 				$ua->agent($UserA) if(defined $UserA) ;
 				$ua->proxy(['http', 'https', 'gopher'],"http://$ProxyServer") if(defined $ProxyServer) ; # always make sure to put this first, lest we send un-proxied packets
-				$ua->default_headers->header('Range' => 'bytes=0-1') if(defined $RangHeader) ;
+				$ua->default_headers->header('Range' => 'bytes=0-1') if(defined $RangHeader);
+				
 				
 				if(defined $RangHeader and not defined $noRespAnal){
 					print "[*] you might want to use -nr with -R for a cleaner scan\n";
@@ -238,7 +240,7 @@ SCANS:
                  HTTP 200 response testing, Apache user enum, SSL cert,
                  Mobile page testing, sensitive items scanning,
                  thumbs.db scanning, content negotiation, and non port 80
-                 server scanning
+                 HTTP port sweeps
     -auth    --  Scan for login pages, admin consoles, and email webapps
     -Cp [dp | jm | wp | all] scan for cms plugins.
                  dp = drupal, jm = joomla, wp = wordpress 
@@ -383,23 +385,23 @@ sub analyzeResponse{ # heres were most of the smart is...
 				foreach my $analHString ( getHeaders($CheckResp) ) {
 						study $analHString;
 						#the page is empty?
-						if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i) {  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n" unless $checkURL eq "/java-sys/";  }
+						if($analHString =~ m/Content-Length:( |)(0|1|2|3|4|5|6)$/i) {  print "[-] Item \"$checkURL\" contains header: \"$analHString\" MAYBE a False Positive or is empty!\n\n" unless $checkURL eq "/java-sys/";  }
 						
 						#auth page checking
-						if($analHString =~ m/www-authenticate:/i) {  print "[+] Item \"$checkURL\" uses HTTP basic auth (www-authenticate)\n";  }
+						if($analHString =~ m/www-authenticate:/i) {  print "[+] Item \"$checkURL\" uses HTTP basic auth (www-authenticate)\n\n";  }
 						
 						#a hash?
-						if($analHString =~ m/Content-MD5:/i) {  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n";  }
+						if($analHString =~ m/Content-MD5:/i) {  print "[+] Item \"$checkURL\" contains header: \"$analHString\" Hmmmm\n\n";  }
 						
 						#redircted me?
-						if($analHString =~ m/refresh:( |)\D/i) {  print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n";  }
+						if($analHString =~ m/refresh:( |)\D/i) {  print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n\n";  }
 						
-						if($analHString =~ m/HTTP\/1\.(1|0) 30(1|2|7)/i) { print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n"; }
+						if($analHString =~ m/HTTP\/1\.(1|0) 30(1|2|7)/i) { print "[-] Item \"$checkURL\" looks like it redirects. header: \"$analHString\"\n\n"; }
 								
 						if($analHString =~ m/location:/i) {
 								my ($dontkare, $lactionEnd) = split(/:/,$analHString);
 								unless($lactionEnd =~ m/($checkURL|index\.)/i) {
-										print "[-] Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n";
+										print "[-] Item \"$analHString\" does not match the requested page: \"$checkURL\" MAYBE a redirect?\n\n";
 								}
 						}
 				}
