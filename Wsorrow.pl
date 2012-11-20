@@ -17,11 +17,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# VERSION 1.4.8
+# VERSION 1.4.9
 # You can't enslave protocals. I dedicate this program to the EFF, anonymous, and all other internet freedom fighters.
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-		print "\n[+] Web-Sorrow v1.4.9 (early release) http enumeration security tool\n";
+		print "\n[+] Web-Sorrow v1.4.9 http enumeration security tool\n";
 
 		use LWP::UserAgent;
 		use LWP::ConnCache;
@@ -44,38 +44,40 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 				my $ua = LWP::UserAgent->new(conn_cache => 1);
 				my $cache = LWP::ConnCache->new;
 				$ua->conn_cache($cache); # use connection cacheing (faster)
-				$ua->timeout(5); # don't wait longer then 5 secs
+				$ua->timeout(2); # don't wait longer then 2 secs
 				$ua->max_redirect(1); # if set to 0 it messes up directory indexing
 				$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 				
 				GetOptions(
-						"host=s"    => \$Host,            # host ip or domain
-						"port=i"    => \$Port,            # port number
-						"S"         => \my $S,            # Standard checks
-						"auth"      => \my $auth,         # MEH!!!!!! self explanitory
-						"Cp=s"      => \my $cmsPlugins,   # cms plugins
-						"I"         => \my $interesting,  # find interesting text
-						"Ws"        => \my $Ws,           # Web services
-						"e"         => \my $e,            # EVERYTHINGGGGGGGG
-						"proxy=s"   => \my $ProxyServer,  # use a proxy
-						"Fd"        => \my $Fd,           # files and dirs
-						"ninja"     => \my $nin,          # use ancient ninja methods
-						"Db"        => \my $DirB,         # use dirbuster database
-						"ua=s"      => \my $UserA,        # userAgent
-						"Sd"        => \my $SubDom,       # subdomain
-						"R"         => \my $RangHeader,   # do range reqs
-						"Shadow"    => \my $shdw,         # req from google cache
-						"Df=s"      => \my $Df,           # default files
-						"d=s"       => \my $Dir,          # scan within this dir
-						"dp"        => \my $doPasive,     # do passive
-						"fuzzsd"    => \my $fuzzsd,       # fuzz source disclosure
-						"Sfd"       => \my $Sfd,          # Small Files dirs Enum
-						"Rua"       => \my $randUA,       # random UA
-						"gzip"      => \my $Gzip,         # use gzip compression
-						"https"     => \my $httpsMode,    # use ssl
-						"nr"        => \my $noRespAnal,   # skip responce anal
-						"intense"   => \my $intenseScan,  # like -e
-						"nyan"      => \my $nyancat,      # a prize for those who read the source
+						"host=s"    => \$Host,             # host ip or domain
+						"port=i"    => \$Port,             # port number
+						"S"         => \my $S,             # Standard checks
+						"auth"      => \my $auth,          # MEH!!!!!! self explanitory
+						"Cp=s"      => \my $cmsPlugins,    # cms plugins
+						"I"         => \my $interesting,   # find interesting text
+						"Ws"        => \my $Ws,            # Web services
+						"e"         => \my $e,             # EVERYTHINGGGGGGGG
+						"proxy=s"   => \my $ProxyServer,   # use a proxy
+						"Fd"        => \my $Fd,            # files and dirs
+						"ninja"     => \my $nin,           # use ancient ninja methods
+						"Db"        => \my $DirB,          # use dirbuster database
+						"ua=s"      => \my $UserA,         # userAgent
+						"Sd"        => \my $SubDom,        # subdomain
+						"R"         => \my $RangHeader,    # do range reqs
+						"Shadow"    => \my $shdw,          # req from google cache
+						"Df=s"      => \my $Df,            # default files
+						"d=s"       => \my $Dir,           # scan within this dir
+						"dp"        => \my $doPasive,      # do passive
+						"fuzzsd"    => \my $fuzzsd,        # fuzz source disclosure
+						"Sfd"       => \my $Sfd,           # Small Files dirs Enum
+						"Rua"       => \my $randUA,        # random UA
+						"gzip"      => \my $Gzip,          # use gzip compression
+						"https"     => \my $httpsMode,     # use ssl
+						"nr"        => \my $noRespAnal,    # skip responce anal
+						"intense"   => \my $intenseScan,   # like -e
+						"die"       => \my $DieOnHostCheck,# die! die! die!
+						"reject=i"  => \my $RejectCode,    # reject this code
+						"nyan"      => \my $nyancat,       # a prize for those who read the source
 				);
 
 				
@@ -100,10 +102,64 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 				
 				$ua->default_headers->header('Accept' => '*.*, q=0.1');# bug reported by google code user aran.lora
 				$ua->default_headers->header('Accept-Encoding' => 'gzip, deflate') if(defined $Gzip);# compresses http responces from host (faster)
-
+				
+				if($Host =~ m/;$/){
+					chop $Host;
+				}
+				
 				foreach ( split(/;/, $Host) ) { # if imput is more than one host do banner for each
 						print "[+] Host: $_\n";
 				}
+				
+				#host noteasions <- my teachers are so proud
+				if($Host =~ m/\*/){
+				
+					if($Host =~ /.*?\*.*\*/){
+						print "\n[X] Sorry. you can only use 1 '*' in host\n";
+						exit();
+					}
+				
+					my $Count = 0;
+					$Host = $Host . ";";
+					$Host = $Host x 255;
+					chop $Host; # it's not every day that you get to use this function
+					
+					for($i = 0;$i < 255;$i++){
+						$Count = $Count + 1;
+						$Host =~ s/\*/$Count/;
+					}
+					
+					$Count = 0;
+				}
+				
+					
+				if($Host =~ m/\d-\d/){
+					my $Count = 0;
+					my $HostRangeR = $Host;
+					my $HostRangeL = $Host;
+					
+					$HostRangeR =~ s/.*(\d|\d\d|\d\d\d)-//;
+					$HostRangeR =~ s/\..*//;
+					$HostRangeL =~ s/-(\d|\d\d|\d\d\d).*//;
+					$HostRangeL =~ s/.*\.//;
+					
+					my $RangeNum = $HostRangeR - $HostRangeL;
+					$RangeNum = $RangeNum + 1; #fixes obo error
+					my $baseNum = $HostRangeL;
+					
+					$Host = $Host . ";";
+					$Host = $Host x $RangeNum;
+					chop $Host;
+					
+					for($i = 0;$i < $RangeNum;$i++){
+						
+						$Count = $Count + 1;
+						$Host =~ s/(\d|\d\d|\d\d\d)-(\d\d\d|\d\d|\d|)/$Count/;
+						
+					}
+					
+				}
+				
 				
 				print "[+] Proxy: $ProxyServer\n" if(defined $ProxyServer);
 				
@@ -144,6 +200,10 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 								
 								print "=" x 70 . "\n[+] Scanning Host: $Host\n";
 								print "=" x 70 . "\n";
+								if( &checkHostAvailibilty() =~ "faild" and defined $DieOnHostCheck){
+									print "[-] Host check failed. canceling scan agianst host\n";
+									next;
+								}
 								startScan();
 						}
 				}
@@ -155,15 +215,13 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 				
 				
 				sub startScan{ #triger scans
-						checkHostAvailibilty() unless(defined $nin);  # skip if --ninja
 						
 						if(defined $Dir) {
 								chop($Dir) if $Dir =~ m/\/$/;
 								$Dir = "/" . $Dir unless $Dir =~ m/^\//;
 								$Host = $Host . $Dir;
 						}
-						
-						
+
 						
 						# in order of aproximate finish times
 						if(defined $S)           { Standard()            ;}
@@ -229,7 +287,11 @@ also it would be a good idea to read readme.txt lots if tips and info in there
 Usage: perl Wsorrow.pl [HOST OPTIONS] [SCAN(s)] [SCAN SETTING(s)]
 
 HOST OPTIONS:
-    -host [host]     --  Defines host to scan or a list separated by semicolons
+    -host [host]     --  Defines host to scan, a list separated by
+                         semicolons, 1.1.1.30-100 type ranges, and
+                         1.1.1.* type ranges. You can also use the
+                         1.1.1.30-100 type ranges for domains
+                         like www1-10.site.com
     -port [port num] --  Defines port number to use (Default is 80)
     -proxy [ip:port] --  Use an HTTP, HTTPS, or gopher proxy server
 
@@ -284,7 +346,8 @@ SCAN SETTINGS:
                  you want your scan to be less verbose use -nr
     -Shadow  --  Request pages from Google cache instead of from the Host.
                  (mostly for just -I otherwise it's unreliable)
-
+    -die     --  Stop scanning host if it appears to be offline
+    -reject  --  Treat this http status code as a 404 error
 
 EXAMPLES:
     perl Wsorrow.pl -host scanme.nmap.org -S
@@ -297,15 +360,19 @@ EXAMPLES:
 }
 
 sub checkHostAvailibilty{
-		my $CheckHost1 = $ua->get("$URNtype://$Host/");
-		my $CheckHost2 = $ua->get("$URNtype://$Host/");
+		my $CheckHost = $ua->get("$URNtype://$Host/");
+		my $out;
 		
-				analyzeResponse($CheckHost2->decoded_content, "/") unless(defined $noRespAnal);
-				interesting($CheckHost2->decoded_content,"/") if(defined $interesting);
+				analyzeResponse($CheckHost->decoded_content, "/") unless(defined $noRespAnal);
+				interesting($CheckHost->decoded_content,"/") if(defined $interesting);
 				
-				if($CheckHost2->is_error and $CheckHost1->is_error) {
-						print "[-] Host: $Host appears to be offline or unavailble. Continuing...\n";
+				if($CheckHost->is_success or $CheckHost->code == 401 or $CheckHost->code == 403) {
+						$out = "passed";
+				} else {
+					$out = "faild";
 				}
+	
+	return($out);
 }
 
 sub PromtUser{ # Yes or No?
@@ -553,6 +620,10 @@ sub makeRequest{
 				$JustDirDBB = $JustDirDBB . "/" unless $JustDirDBB =~ m/(\.|\/$)/; # make dir proper format
 				my $Testreq = $ua->get("$URNtype://$Host" . $JustDirDBB);
 				
+				if(defined $RejectCode and $Testreq->code == $RejectCode){
+					goto nocigar;
+				}
+				
 				if($Testreq->code == 401 or $Testreq->code == 403) {
 						print "HTTP CODE: " . $Testreq->code . " -> "; #I LOVE ALL CAPPS!!!!
 				}
@@ -581,6 +652,7 @@ sub makeRequest{
 						PassiveTests($Testreq->as_string, $JustDirDBB);
 				}
 				
+				nocigar:
 				oddHttpStatus($Testreq->as_string, $JustDirDBB) if(defined $doPasive); # can't put in repsonceAnalysis cuz of ->is_success
 		
 		undef($DataFromDBB); undef($scanMSGG);
@@ -1009,6 +1081,7 @@ sub Standard{ #some standard stuff
 								7001,
 								7002,
 								8080,
+								8180,
 								8888,
 								30821,
 				);
@@ -1119,7 +1192,7 @@ sub cmsPlugins{ # parts of Plugin databases provided by: Chris Sullo from cirt.n
 
 sub FilesAndDirsGoodies{ # databases provided by: raft team
 
-		print "[-] -Fd takes awhile....\n";
+		print "\n[-] -Fd takes awhile....\n";
 		my @FilesAndDirsDBlist = ('DB/raft-medium-files.db','DB/raft-medium-directories.db',);
 		
 		print "\n[*] _______INTERESTING FILES AND DIRS BRUTEFORCE_______ [*]\n";
@@ -1373,7 +1446,7 @@ sub Ninja{ # total number of reqs sent: 6
 # I did not aid or assist in the creation or production of directory-list-2.3-big.db
 sub Dirbuster{
 
-		print "[-] -Db takes awhile.... No joke. Go to the movies or something\n";
+		print "\n[-] -Db takes awhile.... No joke. Go to the movies or something\n";
 
 		open(DirbustDBFile, "<", "DB/directory-list-2.3-big.db");
 		print "\n[*]  _______DIRBUSTER DIRECTORY BRUTEFORCE_______  [*]\n";
@@ -1395,7 +1468,7 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 		my $FindCount = 0;
 		
 		if($Host =~ /^(\d\d\d|\d\d|\d)\.(\d\d\d|\d\d|\d)\.(\d\d\d|\d\d|\d)\.(\d\d\d|\d\d|\d)$/) {
-				my $Opt = PromtUser("[-] Host appears to be an IP Address\n[?] would you like me to Cancel -Sd (y/n) ? ");
+				my $Opt = PromtUser("[-] Host appears to be an IP Address\n[?] would you like me to Cancel subdomain scaning (y/n) ? ");
 
 				if($Opt =~ /y/i) {
 						goto cancelSD;
@@ -1403,7 +1476,7 @@ sub SubDomainBF{ #thanks to deepmagic.com [mubix] and Knock for a lot of the DB/
 		}
 		
 		if($DomainOnly =~ m/.*?\..*?\./i) { # if subdomain
-				my $Opt = PromtUser("[?] It looks like the host you supplied allready has a sub domain. would you like me to srip it (y/n) ? ");
+				my $Opt = PromtUser("[?] It looks like the host you supplied allready has a subdomain. would you like me to srip it (y/n) ? ");
 				
 				if($Opt =~ m/y/i) {
 						$DomainOnly =~ s/.*?\.//; #remove subdomain: blah.ws.com -> ws.com
