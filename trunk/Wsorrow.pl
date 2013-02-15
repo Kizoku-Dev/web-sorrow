@@ -1,6 +1,6 @@
 #!/usr/bin/perl 
 
-# Copyright 2012 Dakota Simonds
+# Copyright 2012-2013 Dakota Simonds
 # A small portion of this software is from Lilith 6.0A and is Sited.
 # sub MatchDirIndex (very modified) Copyright (c) 2003-2005 Michael Hendrickx
 
@@ -17,11 +17,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# VERSION 1.4.9
+# VERSION 1.5.0FINAL
 # You can't enslave protocals. I dedicate this program to the EFF, anonymous, and all other internet freedom fighters.
 
 BEGIN { # it seems to load faster. plus outputs the name and version faster
-		print "\n[+] Web-Sorrow v1.4.9 http enumeration security tool\n";
+		print "\n[+] Web-Sorrow v1.5.0FINAL http enumeration security tool\n";
 
 		use LWP::UserAgent;
 		use LWP::ConnCache;
@@ -29,6 +29,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 		use HTTP::Response;
 		use Getopt::Long qw( GetOptions );
 		use Socket qw( inet_aton );
+		use encoding 'UTF-8';
 		
 		use strict;
 		use warnings;
@@ -44,8 +45,8 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 				my $ua = LWP::UserAgent->new(conn_cache => 1);
 				my $cache = LWP::ConnCache->new;
 				$ua->conn_cache($cache); # use connection cacheing (faster)
-				$ua->timeout(2); # don't wait longer then 2 secs
-				$ua->max_redirect(1); # if set to 0 it messes up directory indexing
+				$ua->timeout(2);         # don't wait longer then 2 secs
+				$ua->max_redirect(1);    # if set to 0 it messes up directory indexing
 				$ua->agent("Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.5) Gecko/20031027");
 				
 				GetOptions(
@@ -77,6 +78,7 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 						"intense"   => \my $intenseScan,   # like -e
 						"die"       => \my $DieOnHostCheck,# die! die! die!
 						"reject=i"  => \my $RejectCode,    # reject this code
+						"flag=s"    => \my $Flag,          # warn user when supplied content is found
 						"nyan"      => \my $nyancat,       # a prize for those who read the source
 				);
 
@@ -87,17 +89,28 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 						exit();
 				}
 
-				if($Host =~ /http(s|):\/\//i) { #check host input
-						$Host =~ s/http(s|):\/\///gi;
-						$Host =~ s/\/.*//g;
-				}
+				study $Host;
 				
 				my $URNtype = "http";
-				if(defined $httpsMode){ # enable ssl
+				if(defined $httpsMode or $Host =~ m/^https:\/\//i){ # enable ssl
+						my $httpspromt = PromtUser("[?] you seem to have used the URN https. do you want to enable ssl/https connections (y/n) ? ");
+						
+						if($Host =~ m/^https:\/\//i and $httpspromt =~ m/y/i){
+							undef;
+						} else {
+							goto nossl;
+						}
+						
 						print "[+] Protocol: HTTPS\n";
 						$URNtype = "https";
 						$ua->protocols_allowed(['https', 'http']);
 						$ua->ssl_opts(verify_hostname => 1);
+				}
+				nossl:
+				
+				if($Host =~ m/^http:\/\//i) { #check host input
+						$Host =~ s/http:\/\///gi;
+						$Host =~ s/\/.*//g;
 				}
 				
 				$ua->default_headers->header('Accept' => '*.*, q=0.1');# bug reported by google code user aran.lora
@@ -297,37 +310,37 @@ HOST OPTIONS:
 
 
 SCANS:
-    -S       --  Standard set of scans including: agresive directory indexing,
-                 Banner grabbing, Language detection, robots.txt,
-                 HTTP 200 response testing, Apache user enum, SSL cert,
-                 Mobile page testing, sensitive items scanning,
-                 thumbs.db scanning, content negotiation, and non port 80
-                 HTTP port sweeps
-    -auth    --  Scan for login pages, admin consoles, and email webapps
+    -S          --  Standard set of scans including: agresive directory indexing,
+                    Banner grabbing, Language detection, robots.txt,
+                    HTTP 200 response testing, Apache user enum, SSL cert,
+                    Mobile page testing, sensitive items scanning,
+                    thumbs.db scanning, content negotiation, and non port 80
+                    HTTP port sweeps
+    -auth       --  Scan for login pages, admin consoles, and email webapps
     -Cp [dp | jm | wp | all] scan for cms plugins.
-                 dp = drupal, jm = joomla, wp = wordpress 
-    -Fd      --  Scan for common interesting files and dirs (Bruteforce)
-    -Sfd     --  Very small files and dirs enum (for the sake of time)
-    -Sd      --  BruteForce Subdomains (host given must be a domain. Not an IP)
-    -Ws      --  Scan for Web Services on host such as: cms version info, 
-                 blogging services, favicon fingerprints, and hosting provider
-    -Db      --  BruteForce Directories with the big dirbuster Database
-    -Df [option] Scan for default files. platfroms/options: Apache,
-                 Frontpage, IIS, Oracle9i, Weblogic, Websphere,
-                 MicrosoftCGI, all (enables all)
-    -ninja   --  A light weight and undetectable scan that uses bits and
-                 peices from other scans (it is not recomended to use with any
-                 other scans if you want to be stealthy. See readme.txt)
-    -fuzzsd  --  Fuzz every found file for Source Disclosure
-    -e       --  Everything. run all scans
-    -intense --  like -e but no bruteforce
-    -I       --  Passively scan interesting strings in responses such as:
-                 emails, wordpress dirs, cgi dirs, SSI, facebook fbids,
-                 and much more (results may Contain partial html)
-    -dp      --  Do passive tests on requests: banner grabbing, Dir indexing,
-                 Non 200 http status, strings in error pages,
-                 Passive Web services
-
+                    dp = drupal, jm = joomla, wp = wordpress 
+    -Fd         --  Scan for common interesting files and dirs (Bruteforce)
+    -Sfd        --  Very small files and dirs enum (for the sake of time)
+    -Sd         --  BruteForce Subdomains (host given must be a domain. Not an IP)
+    -Ws         --  Scan for Web Services on host such as: cms version info, 
+                    blogging services, favicon fingerprints, and hosting provider
+    -Db         --  BruteForce Directories with the big dirbuster Database
+    -Df [option]    Scan for default files. platfroms/options: Apache,
+                    Frontpage, IIS, Oracle9i, Weblogic, Websphere,
+                    MicrosoftCGI, all (enables all)
+    -ninja      --  A light weight and undetectable scan that uses bits and
+                    peices from other scans (it is not recomended to use with any
+                    other scans if you want to be stealthy. See readme.txt)
+    -fuzzsd     --  Fuzz every found file for Source Disclosure
+    -e          --  Everything. run all scans
+    -intense    --  like -e but no bruteforce
+    -I          --  Passively scan interesting strings in responses such as:
+                    emails, wordpress dirs, cgi dirs, SSI, facebook fbids,
+                    and much more (results may Contain partial html)
+    -dp         --  Do passive tests on requests: banner grabbing, Dir indexing,
+                    Non 200 http status, strings in error pages,
+                    Passive Web services
+    -flag [txt] --  report when this text shows up on the responces.
 
 SCAN SETTINGS:
     -ua [ua] --  Useragent to use. put it in quotes. (default is firefox linux)
@@ -619,16 +632,17 @@ sub makeRequest{
 				
 				$JustDirDBB = $JustDirDBB . "/" unless $JustDirDBB =~ m/(\.|\/$)/; # make dir proper format
 				my $Testreq = $ua->get("$URNtype://$Host" . $JustDirDBB);
+				my $responceCode = $Testreq->code; #only needs to be calulated once.
 				
-				if(defined $RejectCode and $Testreq->code == $RejectCode){
+				if(defined $RejectCode and $responceCode == $RejectCode){
 					goto nocigar;
 				}
 				
-				if($Testreq->code == 401 or $Testreq->code == 403) {
-						print "HTTP CODE: " . $Testreq->code . " -> "; #I LOVE ALL CAPPS!!!!
+				if($Testreq->code == 401 or $responceCode == 403) {
+						print "HTTP CODE: " . $responceCode . " -> "; #I LOVE ALL CAPPS!!!!
 				}
 				
-				if($Testreq->is_success or $Testreq->code == 401 or $Testreq->code == 403) {
+				if($Testreq->is_success or $responceCode == 401 or $responceCode == 403) {
 						if($databaseContextt eq "Synt") {
 								
 								print "[+] $MSGG: $JustDirDBB\n";
@@ -650,6 +664,10 @@ sub makeRequest{
 						analyzeResponse($Testreq->as_string, $JustDirDBB) unless(defined $noRespAnal);
 						sourceDiscolsure($JustDirDBB) if (defined $fuzzsd or defined $e);
 						PassiveTests($Testreq->as_string, $JustDirDBB);
+				}
+				
+				if(defined $Flag and $Testreq->decoded_content =~ m/$Flag/i and length $Testreq->decoded_content > 1){
+					print "[+] FLAG: http $responceCode -> $JustDirDBB\n";
 				}
 				
 				nocigar:
