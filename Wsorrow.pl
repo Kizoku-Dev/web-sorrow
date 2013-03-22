@@ -91,20 +91,15 @@ BEGIN { # it seems to load faster. plus outputs the name and version faster
 
 				study $Host;
 				
+				#ssl stuff
 				my $URNtype = "http";
 				if(defined $httpsMode or $Host =~ m/^https:\/\//i){ # enable ssl
-						my $httpspromt = PromtUser("[?] you seem to have used the URN https. do you want to enable ssl/https connections (y/n) ? ");
-						
-						if($Host =~ m/^https:\/\//i and $httpspromt =~ m/y/i){
-							undef;
-						} else {
-							goto nossl;
-						}
-						
+
 						print "[+] Protocol: HTTPS\n";
 						$URNtype = "https";
 						$ua->protocols_allowed(['https', 'http']);
 						$ua->ssl_opts(verify_hostname => 1);
+						
 				}
 				nossl:
 				
@@ -533,7 +528,7 @@ sub RandomUA{
 					"Mozilla/5.0 (X11; U; Linux i686; en-US; rv:0.9.3) Gecko/20010801",
 				);
 				
-				return( $UAlist[( int( rand(6) + rand( (6 + rand(5)) )  ) )] ); #random UserAgent
+				return( $UAlist[( int( rand(6) + rand( (rand(6) + rand(5)) )  ) )] ); #random UserAgent
 }
 
 sub oddHttpStatus{ # Detect when there an odd HTTP status also other headers
